@@ -461,7 +461,7 @@ docker run -it --rm \
     -e CLAUDE_CONTINUE_FLAG="$CONTINUE_FLAG" \
     -e ENABLE_MACOS_BUILDS="${ENABLE_MACOS_BUILDS:-false}" \
     -e MACOS_USERNAME="${MACOS_USERNAME:-$(whoami)}" \
-    -e HOST_WORKING_DIRECTORY="${HOST_WORKING_DIRECTORY:-}" \
+    -e HOST_WORKING_DIRECTORY="${HOST_WORKING_DIRECTORY:-$CURRENT_DIR}" \
     --workdir /workspace \
     --name "claude-docker-$(basename "$CURRENT_DIR")-$$" \
     claude-docker:latest "${ARGS[@]}"
