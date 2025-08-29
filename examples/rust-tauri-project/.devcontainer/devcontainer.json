@@ -3,10 +3,10 @@
   "image": "claude-rust-tauri:latest",
   
   "features": {
-    "ghcr.io/your-org/devcontainer-features/claude-mcp:1": {
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
       "servers": "serena,context7,rust-analyzer,tauri-tools"
     },
-    "ghcr.io/your-org/devcontainer-features/host-ssh-build:1": {
+    "ghcr.io/visheshd/claude-devcontainer/host-ssh-build:1": {
       "enableMacosBuild": true,
       "projectTypes": "rust,tauri",
       "buildCommands": "cargo tauri build,cargo tauri dev --no-open"

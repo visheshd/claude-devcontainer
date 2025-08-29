@@ -22,7 +22,8 @@
       "Read(/Users/visheshd/Work/open-source/claude-code/.devcontainer/**)",
       "Read(/Users/visheshd/Work/open-source/sim/.devcontainer/**)",
       "Bash(./build-all-images.sh:*)",
-      "Bash(./build.sh:*)"
+      "Bash(./build.sh:*)",
+      "Read(/Users/visheshd/Work/7tea1-devcontainer/.devcontainer/**)"
     ],
     "deny": []
   }

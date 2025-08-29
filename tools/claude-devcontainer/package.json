@@ -44,6 +44,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/claude-devcontainer"
+    "url": "https://github.com/visheshd/claude-devcontainer"
   }
 }

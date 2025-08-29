@@ -3,7 +3,7 @@
   "id": "claude-mcp",
   "version": "1.0.0",
   "description": "Configurable MCP (Model Context Protocol) server installation for Claude Code",
-  "documentationURL": "https://github.com/your-org/claude-devcontainer-features/tree/main/features/claude-mcp",
+  "documentationURL": "https://github.com/visheshd/claude-devcontainer/tree/main/src/claude-mcp",
   "options": {
     "servers": {
       "type": "string",

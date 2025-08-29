@@ -2,7 +2,7 @@
 
 A comprehensive DevContainer-based development environment for Claude Code, replacing the monolithic claude-docker approach with optimized, stack-specific containers and native IDE integration.
 
-[![Build Images](https://github.com/your-org/claude-devcontainer/actions/workflows/build-images.yml/badge.svg)](https://github.com/your-org/claude-devcontainer/actions/workflows/build-images.yml)
+[![Build Images](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml/badge.svg)](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml)
 
 📋 **Migration Guide**: See [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) for migrating from claude-docker  
 📋 **MCP Setup Guide**: See [MCP_SERVERS.md](MCP_SERVERS.md) for customizing or adding more MCP servers
@@ -177,7 +177,7 @@ code test-project/
 ### Development Setup
 ```bash
 # Clone and setup development environment
-git clone https://github.com/your-org/claude-docker.git
+git clone https://github.com/visheshd/claude-devcontainer.git
 cd claude-docker
 
 # Install CLI tool in development mode

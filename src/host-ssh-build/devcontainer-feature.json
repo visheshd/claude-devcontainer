@@ -3,7 +3,7 @@
   "id": "host-ssh-build",
   "version": "1.0.0",
   "description": "Enables SSH-based builds on the host system, particularly useful for macOS native builds from Linux containers",
-  "documentationURL": "https://github.com/your-org/claude-devcontainer-features/tree/main/features/host-ssh-build",
+  "documentationURL": "https://github.com/visheshd/claude-devcontainer/tree/main/src/host-ssh-build",
   "options": {
     "enableMacosBuild": {
       "type": "boolean",

@@ -3,7 +3,7 @@
   "image": "claude-python-ml:latest",
   
   "features": {
-    "ghcr.io/your-org/devcontainer-features/claude-mcp:1": {
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
       "servers": "serena,context7,langchain-tools,vector-db,anthropic-api"
     }
   },
