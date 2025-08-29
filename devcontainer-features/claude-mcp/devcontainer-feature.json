@@ -1,0 +1,55 @@
+{
+  "name": "Claude MCP Servers",
+  "id": "claude-mcp",
+  "version": "1.0.0",
+  "description": "Configurable MCP (Model Context Protocol) server installation for Claude Code",
+  "documentationURL": "https://github.com/your-org/claude-devcontainer-features/tree/main/features/claude-mcp",
+  "options": {
+    "servers": {
+      "type": "string",
+      "proposals": [
+        "serena",
+        "context7",
+        "twilio",
+        "langchain-tools",
+        "vector-db",
+        "anthropic-api",
+        "rust-analyzer",
+        "tauri-tools",
+        "web-dev-tools",
+        "nextjs-tools"
+      ],
+      "default": "serena,context7",
+      "description": "Comma-separated list of MCP servers to install"
+    },
+    "additionalServers": {
+      "type": "string",
+      "default": "",
+      "description": "Additional MCP servers specified as JSON array of server definitions"
+    },
+    "enableEnvironmentVariables": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to load environment variables from .env files for server configuration"
+    },
+    "installLocation": {
+      "type": "string",
+      "default": "user",
+      "proposals": ["user", "system"],
+      "description": "Install location for MCP servers (user or system scope)"
+    }
+  },
+  "containerEnv": {
+    "CLAUDE_MCP_ENABLED": "true"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code"
+      ]
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils"
+  ]
+}

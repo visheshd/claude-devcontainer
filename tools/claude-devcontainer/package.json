@@ -1,0 +1,49 @@
+{
+  "name": "claude-devcontainer",
+  "version": "1.0.0",
+  "description": "CLI tool for generating Claude DevContainer configurations and migrating from claude-docker",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "claude-devcontainer": "./bin/claude-devcontainer"
+  },
+  "scripts": {
+    "build": "npm run build:cli",
+    "build:cli": "esbuild src/index.js --bundle --platform=node --target=node18 --outfile=dist/index.js --banner:js='#!/usr/bin/env node'",
+    "dev": "node src/index.js",
+    "test": "jest",
+    "lint": "eslint src/",
+    "prepare": "chmod +x bin/claude-devcontainer"
+  },
+  "keywords": [
+    "claude",
+    "devcontainer",
+    "docker",
+    "development",
+    "ai"
+  ],
+  "author": "Claude DevContainer Team",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "inquirer": "^9.2.0",
+    "chalk": "^5.3.0",
+    "ora": "^7.0.1",
+    "fs-extra": "^11.1.1",
+    "yaml": "^2.3.0",
+    "semver": "^7.5.0",
+    "glob": "^10.3.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.0",
+    "eslint": "^8.45.0",
+    "jest": "^29.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/claude-devcontainer"
+  }
+}

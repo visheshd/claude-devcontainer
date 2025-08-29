@@ -443,6 +443,10 @@ if [ "$WORKTREE_DETECTED" = "true" ] && [ -f "$CURRENT_DIR/.git" ]; then
     echo "  ✓ Git worktree configured for container use"
 fi
 
+# Set HOST_WORKING_DIRECTORY to current directory for container use
+HOST_WORKING_DIRECTORY="$CURRENT_DIR"
+echo "Setting HOST_WORKING_DIRECTORY to: $HOST_WORKING_DIRECTORY"
+
 # Run Claude Code in Docker
 echo "Starting Claude Code in Docker..."
 docker run -it --rm \
@@ -461,7 +465,7 @@ docker run -it --rm \
     -e CLAUDE_CONTINUE_FLAG="$CONTINUE_FLAG" \
     -e ENABLE_MACOS_BUILDS="${ENABLE_MACOS_BUILDS:-false}" \
     -e MACOS_USERNAME="${MACOS_USERNAME:-$(whoami)}" \
-    -e HOST_WORKING_DIRECTORY="${HOST_WORKING_DIRECTORY:-$CURRENT_DIR}" \
+    -e HOST_WORKING_DIRECTORY="$HOST_WORKING_DIRECTORY" \
     --workdir /workspace \
     --name "claude-docker-$(basename "$CURRENT_DIR")-$$" \
     claude-docker:latest "${ARGS[@]}"

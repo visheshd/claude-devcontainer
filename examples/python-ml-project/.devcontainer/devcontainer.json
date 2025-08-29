@@ -1,0 +1,46 @@
+{
+  "name": "Python ML with LangChain",
+  "image": "ghcr.io/your-org/claude-python-ml:latest",
+  
+  "features": {
+    "ghcr.io/your-org/devcontainer-features/claude-mcp:1": {
+      "servers": "serena,context7,langchain-tools,vector-db,anthropic-api"
+    }
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "ms-python.black-formatter",
+        "ms-python.pylint",
+        "ms-python.mypy-type-checker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/home/claude-user/.venvs/ml/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "jupyter.kernels.filter": [
+          {
+            "path": "/home/claude-user/.venvs/ml/bin/python",
+            "type": "pythonEnvironment"
+          }
+        ]
+      }
+    }
+  },
+  
+  "forwardPorts": [8888],
+  "portsAttributes": {
+    "8888": {
+      "label": "Jupyter Lab",
+      "onAutoForward": "notify"
+    }
+  },
+  
+  "postCreateCommand": "uv sync && echo '🐍 Python ML environment ready!'",
+  
+  "remoteUser": "claude-user",
+  "workspaceFolder": "/workspace"
+}

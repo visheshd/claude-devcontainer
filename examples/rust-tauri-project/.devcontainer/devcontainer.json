@@ -1,0 +1,58 @@
+{
+  "name": "Rust Tauri Desktop App",
+  "image": "ghcr.io/your-org/claude-rust-tauri:latest",
+  
+  "features": {
+    "ghcr.io/your-org/devcontainer-features/claude-mcp:1": {
+      "servers": "serena,context7,rust-analyzer,tauri-tools"
+    },
+    "ghcr.io/your-org/devcontainer-features/host-ssh-build:1": {
+      "enableMacosBuild": true,
+      "projectTypes": "rust,tauri",
+      "buildCommands": "cargo tauri build,cargo tauri dev --no-open"
+    }
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "rust-lang.rust-analyzer", 
+        "tauri-apps.tauri-vscode",
+        "vadimcn.vscode-lldb",
+        "serayuzgur.crates",
+        "dustypomerleau.rust-syntax"
+      ],
+      "settings": {
+        "rust-analyzer.cargo.features": "all",
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.imports.granularity.group": "module",
+        "rust-analyzer.completion.addCallParenthesis": false,
+        "files.associations": {
+          "*.rs": "rust"
+        }
+      }
+    }
+  },
+  
+  "forwardPorts": [1420, 3000],
+  "portsAttributes": {
+    "1420": {
+      "label": "Tauri Dev Server",
+      "onAutoForward": "notify"
+    },
+    "3000": {
+      "label": "Frontend Dev Server",
+      "onAutoForward": "ignore"
+    }
+  },
+  
+  "postCreateCommand": "cargo fetch && echo '🦀 Rust Tauri environment ready!'",
+  
+  "remoteUser": "claude-user",
+  "workspaceFolder": "/workspace",
+  
+  "mounts": [
+    "source=${localWorkspaceFolder}/.cargo,target=/home/claude-user/.cargo,type=bind"
+  ]
+}

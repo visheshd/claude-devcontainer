@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+
+// Simple wrapper that runs the main CLI
+import '../src/index.js';

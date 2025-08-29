@@ -1,0 +1,161 @@
+name: Build and Publish Claude DevContainer Images
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'dockerfiles/**'
+      - '.github/workflows/build-images.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'dockerfiles/**'
+      - '.github/workflows/build-images.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  BASE_IMAGE_NAME: ${{ github.repository }}/claude-base
+  PYTHON_ML_IMAGE_NAME: ${{ github.repository }}/claude-python-ml
+  RUST_TAURI_IMAGE_NAME: ${{ github.repository }}/claude-rust-tauri
+  NEXTJS_IMAGE_NAME: ${{ github.repository }}/claude-nextjs
+
+jobs:
+  build-base:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      base-image: ${{ steps.meta.outputs.tags }}
+      base-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Base image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: dockerfiles/claude-base
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            USER_UID=1000
+            USER_GID=1000
+
+  build-stacks:
+    runs-on: ubuntu-latest
+    needs: build-base
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        stack:
+          - name: python-ml
+            image_name: PYTHON_ML_IMAGE_NAME
+            context: dockerfiles/python-ml
+          - name: rust-tauri
+            image_name: RUST_TAURI_IMAGE_NAME
+            context: dockerfiles/rust-tauri
+          - name: nextjs
+            image_name: NEXTJS_IMAGE_NAME
+            context: dockerfiles/nextjs
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env[matrix.stack.image_name] }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push ${{ matrix.stack.name }} image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.stack.context }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BASE_IMAGE=${{ needs.build-base.outputs.base-image }}
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: [build-base, build-stacks]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    strategy:
+      matrix:
+        image:
+          - claude-base
+          - claude-python-ml
+          - claude-rust-tauri
+          - claude-nextjs
+    steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'

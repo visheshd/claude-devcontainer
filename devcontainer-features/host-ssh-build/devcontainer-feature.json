@@ -1,0 +1,48 @@
+{
+  "name": "Host SSH Build Integration",
+  "id": "host-ssh-build",
+  "version": "1.0.0",
+  "description": "Enables SSH-based builds on the host system, particularly useful for macOS native builds from Linux containers",
+  "documentationURL": "https://github.com/your-org/claude-devcontainer-features/tree/main/features/host-ssh-build",
+  "options": {
+    "enableMacosBuild": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable macOS native build support via SSH"
+    },
+    "sshPort": {
+      "type": "string",
+      "default": "22",
+      "description": "SSH port for host connection"
+    },
+    "buildCommands": {
+      "type": "string",
+      "default": "npm run build,cargo build,python -m build",
+      "description": "Comma-separated list of build commands to support"
+    },
+    "projectTypes": {
+      "type": "string", 
+      "default": "nodejs,rust,python",
+      "description": "Comma-separated list of project types to detect"
+    },
+    "enableProjectDetection": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable automatic project type detection"
+    }
+  },
+  "containerEnv": {
+    "ENABLE_MACOS_BUILDS": "true",
+    "SSH_BUILD_ENABLED": "true"
+  },
+  "mounts": [
+    {
+      "source": "~/.ssh",
+      "target": "/home/vscode/.ssh-host",
+      "type": "bind"
+    }
+  ],
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils"
+  ]
+}

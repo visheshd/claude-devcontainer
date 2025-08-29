@@ -1,0 +1,55 @@
+{
+  "name": "Next.js Web Application",
+  "image": "ghcr.io/your-org/claude-nextjs:latest",
+  
+  "features": {
+    "ghcr.io/your-org/devcontainer-features/claude-mcp:1": {
+      "servers": "serena,context7,web-dev-tools,nextjs-tools"
+    }
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense",
+        "ms-vscode.vscode-json",
+        "bradlc.vscode-tailwindcss"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "typescript.suggest.autoImports": true,
+        "emmet.includeLanguages": {
+          "typescript": "html",
+          "typescriptreact": "html"
+        }
+      }
+    }
+  },
+  
+  "forwardPorts": [3000, 3001],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js Dev Server",
+      "onAutoForward": "openPreview"
+    },
+    "3001": {
+      "label": "Storybook",
+      "onAutoForward": "ignore"
+    }
+  },
+  
+  "postCreateCommand": "npm install && echo '⚡ Next.js environment ready!'",
+  
+  "remoteUser": "claude-user",
+  "workspaceFolder": "/workspace"
+}
