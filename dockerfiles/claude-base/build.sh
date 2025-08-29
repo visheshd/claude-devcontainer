@@ -57,7 +57,7 @@ docker build \
     --build-arg USER_GID="$(id -g)" \
     -t "$FULL_TAG" \
     -f "$SCRIPT_DIR/Dockerfile" \
-    "$SCRIPT_DIR"
+    "$PROJECT_ROOT"
 
 echo "✓ Build completed: $FULL_TAG"
 

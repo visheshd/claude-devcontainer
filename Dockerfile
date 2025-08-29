@@ -53,6 +53,10 @@ RUN mkdir -p /app/.claude /home/claude-user/.claude /home/claude-user/scripts
 
 # Copy scripts
 COPY scripts/* /home/claude-user/scripts
+RUN chmod +x /home/claude-user/scripts/git-wrapper.sh
+
+# Install git wrapper at higher precedence than system git
+RUN ln -sf /home/claude-user/scripts/git-wrapper.sh /usr/local/bin/git
 
 # Copy startup script
 COPY src/startup.sh /app/

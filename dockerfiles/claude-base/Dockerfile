@@ -43,7 +43,15 @@ ENV PATH="/usr/local/bin:${PATH}"
 
 # Create app and configuration directories
 WORKDIR /app
-RUN mkdir -p /app/.claude /home/claude-user/.claude
+RUN mkdir -p /app/.claude /home/claude-user/.claude /home/claude-user/scripts
+
+# Copy git wrapper script and utilities
+COPY scripts/git-wrapper.sh /home/claude-user/scripts/
+COPY scripts/git_utils.py /home/claude-user/scripts/
+RUN chmod +x /home/claude-user/scripts/git-wrapper.sh
+
+# Install git wrapper at higher precedence than system git
+RUN ln -sf /home/claude-user/scripts/git-wrapper.sh /usr/local/bin/git
 
 # Configure oh-my-zsh for claude-user (while still root)
 RUN cp /root/.oh-my-zsh /home/claude-user/.oh-my-zsh -r && \
@@ -64,6 +72,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Add local bin and scripts to PATH
 ENV PATH="/home/claude-user/.local/bin:${PATH}"
+ENV PYTHONPATH="/home/claude-user/scripts:${PYTHONPATH}"
 
 # Configure git-delta for better git diff experience
 RUN curl -fsSL https://github.com/dandavison/delta/releases/download/0.16.5/delta-0.16.5-x86_64-unknown-linux-gnu.tar.gz | \
