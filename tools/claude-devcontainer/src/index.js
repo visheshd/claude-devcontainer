@@ -236,7 +236,7 @@ class DevContainerGenerator {
     if (stack === 'python-ml') {
       postCreateCommands.push('uv sync');
     } else if (stack === 'nextjs') {
-      postCreateCommands.push('npm install');
+      postCreateCommands.push('pnpm install');
     } else if (stack === 'rust-tauri') {
       postCreateCommands.push('cargo fetch');
     }
