@@ -38,8 +38,8 @@ RUN apt-get update && apt-get install -y \
 # Switch back to claude-user
 USER claude-user
 
-# Install Rust toolchain
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+# Install Rust toolchain (minimal profile to save disk space)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
 # Add Rust to PATH
 ENV PATH="/home/claude-user/.cargo/bin:${PATH}"
