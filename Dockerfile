@@ -49,7 +49,10 @@ RUN npm install -g @anthropic-ai/claude-code
 ENV PATH="/usr/local/bin:${PATH}"
 
 # Create directories for configuration
-RUN mkdir -p /app/.claude /home/claude-user/.claude
+RUN mkdir -p /app/.claude /home/claude-user/.claude /home/claude-user/scripts
+
+# Copy scripts
+COPY scripts/* /home/claude-user/scripts
 
 # Copy startup script
 COPY src/startup.sh /app/
