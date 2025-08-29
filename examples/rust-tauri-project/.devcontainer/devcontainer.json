@@ -1,6 +1,6 @@
 {
   "name": "Rust Tauri Desktop App",
-  "image": "ghcr.io/your-org/claude-rust-tauri:latest",
+  "image": "claude-rust-tauri:latest",
   
   "features": {
     "ghcr.io/your-org/devcontainer-features/claude-mcp:1": {

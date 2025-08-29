@@ -1,6 +1,6 @@
 {
   "name": "Next.js Web Application",
-  "image": "ghcr.io/your-org/claude-nextjs:latest",
+  "image": "claude-nextjs:latest",
   
   "features": {
     "ghcr.io/your-org/devcontainer-features/claude-mcp:1": {

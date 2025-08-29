@@ -20,7 +20,7 @@ const STACKS = {
   'python-ml': {
     name: 'Python ML',
     description: 'Python with ML libraries, LangChain, Jupyter',
-    image: 'ghcr.io/your-org/claude-python-ml:latest',
+    image: 'claude-python-ml:latest',
     ports: [8888], // Jupyter
     features: ['serena', 'context7', 'langchain-tools', 'vector-db'],
     extensions: [
@@ -32,7 +32,7 @@ const STACKS = {
   'rust-tauri': {
     name: 'Rust Tauri',
     description: 'Rust with Tauri v2 for desktop apps',
-    image: 'ghcr.io/your-org/claude-rust-tauri:latest',
+    image: 'claude-rust-tauri:latest',
     ports: [1420], // Tauri dev server
     features: ['serena', 'context7', 'rust-analyzer', 'tauri-tools'],
     extensions: [
@@ -45,7 +45,7 @@ const STACKS = {
   'nextjs': {
     name: 'Next.js',
     description: 'Next.js with modern web development tools',
-    image: 'ghcr.io/your-org/claude-nextjs:latest',
+    image: 'claude-nextjs:latest',
     ports: [3000], // Next.js dev server
     features: ['serena', 'context7', 'web-dev-tools', 'nextjs-tools'],
     extensions: [
@@ -57,7 +57,7 @@ const STACKS = {
   'custom': {
     name: 'Custom',
     description: 'Base Claude environment for custom configuration',
-    image: 'ghcr.io/your-org/claude-base:latest',
+    image: 'claude-base:latest',
     features: ['serena', 'context7'],
     extensions: []
   }

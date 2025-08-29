@@ -10,7 +10,7 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 # Default values
 PUSH=false
 TAG="claude-base:latest"
-REGISTRY="ghcr.io/your-org"
+REGISTRY=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -35,7 +35,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-FULL_TAG="$REGISTRY/$TAG"
+if [ -n "$REGISTRY" ]; then
+    FULL_TAG="$REGISTRY/$TAG"
+else
+    FULL_TAG="$TAG"
+fi
 
 echo "Building Claude Base Image..."
 echo "Tag: $FULL_TAG"

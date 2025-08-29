@@ -9,8 +9,8 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 # Default values
 PUSH=false
 TAG="claude-nextjs:latest"
-REGISTRY="ghcr.io/your-org"
-BASE_IMAGE="ghcr.io/your-org/claude-base:latest"
+REGISTRY=""
+BASE_IMAGE="claude-base:latest"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -39,7 +39,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-FULL_TAG="$REGISTRY/$TAG"
+if [ -n "$REGISTRY" ]; then
+    FULL_TAG="$REGISTRY/$TAG"
+else
+    FULL_TAG="$TAG"
+fi
 
 echo "Building Claude Next.js Image..."
 echo "Tag: $FULL_TAG"

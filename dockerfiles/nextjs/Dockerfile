@@ -27,11 +27,11 @@ USER claude-user
 # Install Bun (modern JavaScript runtime and package manager)
 RUN curl -fsSL https://bun.sh/install | bash
 
+# Switch back to root to install global packages
+USER root
+
 # Install pnpm (alternative package manager)
 RUN npm install -g pnpm
-
-# Add Bun to PATH
-ENV PATH="/home/claude-user/.bun/bin:${PATH}"
 
 # Install global development tools
 RUN npm install -g \
@@ -44,10 +44,14 @@ RUN npm install -g \
     vercel \
     serve
 
-# Install additional web development tools with Bun
-RUN bun install -g \
-    wrangler \
-    @cloudflare/next-on-pages
+# Switch back to claude-user
+USER claude-user
+
+# Add Bun to PATH
+ENV PATH="/home/claude-user/.bun/bin:${PATH}"
+
+# Note: Additional tools can be installed as needed
+# RUN bun install -g wrangler @cloudflare/next-on-pages
 
 # Create workspace directories
 RUN mkdir -p \

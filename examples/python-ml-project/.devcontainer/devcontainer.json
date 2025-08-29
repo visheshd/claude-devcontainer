@@ -1,6 +1,6 @@
 {
   "name": "Python ML with LangChain",
-  "image": "ghcr.io/your-org/claude-python-ml:latest",
+  "image": "claude-python-ml:latest",
   
   "features": {
     "ghcr.io/your-org/devcontainer-features/claude-mcp:1": {

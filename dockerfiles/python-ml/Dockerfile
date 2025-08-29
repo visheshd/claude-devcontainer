@@ -45,7 +45,7 @@ RUN ~/.local/bin/uv python install 3.11 && \
     ~/.local/bin/uv python pin 3.11
 
 # Install common Python ML packages with uv
-RUN ~/.local/bin/uv tool install jupyter && \
+RUN ~/.local/bin/uv tool install jupyterlab && \
     ~/.local/bin/uv tool install ipython
 
 # Create a virtual environment for ML development
@@ -62,8 +62,6 @@ RUN ~/.local/bin/uv pip install \
     plotly \
     jupyterlab \
     ipywidgets \
-    # PyTorch (CPU version for base image)
-    torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu \
     # LangChain ecosystem
     langchain \
     langchain-community \
@@ -82,6 +80,12 @@ RUN ~/.local/bin/uv pip install \
     mypy \
     pytest \
     pytest-cov
+
+# Install PyTorch separately with CPU index URL
+RUN ~/.local/bin/uv pip install \
+    --python ~/.venvs/ml/bin/python \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch torchvision torchaudio
 
 # Add ML virtual environment to PATH
 ENV PATH="/home/claude-user/.venvs/ml/bin:$PATH"

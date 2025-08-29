@@ -32,7 +32,8 @@ RUN if getent group $USER_GID > /dev/null 2>&1; then \
         groupadd -g $USER_GID claude-user && GROUP_NAME=claude-user; \
     fi && \
     useradd -m -s /bin/zsh -u $USER_UID -g $GROUP_NAME claude-user && \
-    echo "claude-user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    echo "claude-user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    echo "GROUP_NAME=$GROUP_NAME" > /tmp/group_info
 
 # Install Claude Code globally
 RUN npm install -g @anthropic-ai/claude-code
@@ -44,18 +45,19 @@ ENV PATH="/usr/local/bin:${PATH}"
 WORKDIR /app
 RUN mkdir -p /app/.claude /home/claude-user/.claude
 
+# Configure oh-my-zsh for claude-user (while still root)
+RUN cp /root/.oh-my-zsh /home/claude-user/.oh-my-zsh -r && \
+    cp /root/.zshrc /home/claude-user/.zshrc
+
 # Set proper ownership for directories
-RUN chown -R claude-user:claude-user /app /home/claude-user
+RUN GROUP_NAME=$(cat /tmp/group_info | cut -d= -f2) && \
+    chown -R claude-user:$GROUP_NAME /app /home/claude-user
 
 # Switch to non-root user for remaining operations
 USER claude-user
 
 # Set HOME environment variable
 ENV HOME=/home/claude-user
-
-# Configure oh-my-zsh for claude-user
-RUN cp /root/.oh-my-zsh /home/claude-user/.oh-my-zsh -r && \
-    cp /root/.zshrc /home/claude-user/.zshrc
 
 # Install uv (Python package manager) for claude-user
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
