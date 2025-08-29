@@ -111,7 +111,7 @@ echo "Packages: $(pip list | wc -l) installed"\n\
 echo "Jupyter Lab: http://localhost:8888"\n\
 echo "Notebooks: /workspace/notebooks"\n\
 echo ""\n\
-exec "$@"' > ~/.local/bin/ml-start && \
+exec startup.sh' > ~/.local/bin/ml-start && \
     chmod +x ~/.local/bin/ml-start
 
 # Default working directory

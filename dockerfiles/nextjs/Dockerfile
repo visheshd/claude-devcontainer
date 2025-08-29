@@ -169,7 +169,7 @@ echo "  npx create-next-app@latest my-app    # Create new Next.js app"\n\
 echo "  cd my-app && npm run dev             # Start development"\n\
 echo "  or use: bun create next my-app       # With Bun"\n\
 echo ""\n\
-exec "$@"' > ~/.local/bin/nextjs-start && \
+exec startup.sh' > ~/.local/bin/nextjs-start && \
     chmod +x ~/.local/bin/nextjs-start
 
 # Configure development environment

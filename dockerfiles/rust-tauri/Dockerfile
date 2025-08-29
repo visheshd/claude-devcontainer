@@ -129,7 +129,7 @@ echo "  cargo tauri init     # Initialize Tauri project"\n\
 echo "  cargo tauri dev      # Start development"\n\
 echo "  cargo tauri build    # Build production app"\n\
 echo ""\n\
-exec "$@"' > ~/.local/bin/tauri-start && \
+exec startup.sh' > ~/.local/bin/tauri-start && \
     chmod +x ~/.local/bin/tauri-start
 
 # Configure Rust environment
