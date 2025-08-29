@@ -196,16 +196,19 @@ class DevContainerGenerator {
     // Add features
     const featureConfig = {};
     
+    // Calculate absolute path to local DevContainer features
+    const featuresPath = path.resolve(__dirname, '../../../devcontainer-features');
+    
     // MCP servers feature
     if (features.length > 0) {
-      featureConfig['ghcr.io/your-org/devcontainer-features/claude-mcp:1'] = {
+      featureConfig[path.join(featuresPath, 'claude-mcp')] = {
         servers: features.join(',')
       };
     }
 
     // Host SSH build feature
     if (options.enableHostBuilds) {
-      featureConfig['ghcr.io/your-org/devcontainer-features/host-ssh-build:1'] = {
+      featureConfig[path.join(featuresPath, 'host-ssh-build')] = {
         enableMacosBuild: true
       };
     }
