@@ -190,7 +190,11 @@ class DevContainerGenerator {
     
     const config = {
       name: options.name || `Claude ${stackConfig.name} Development`,
-      image: stackConfig.image
+      image: stackConfig.image,
+      // Mount user's Claude directory for full functionality
+      mounts: [
+        "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+      ]
     };
 
     // Add features

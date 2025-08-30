@@ -149,6 +149,7 @@ Main DevContainer configuration with:
 - Port forwarding
 - VS Code extensions
 - Post-creation commands
+- **Claude directory mounting** for user customizations
 
 ### `.claude/settings.json` (optional)
 Claude-specific settings including:
@@ -161,6 +162,38 @@ Environment variable template for:
 - Twilio configuration
 - Custom MCP server settings
 - Other stack-specific variables
+
+## Claude User Data Mounting
+
+All DevContainer configurations automatically mount your host `~/.claude` directory to preserve:
+
+### User Customizations
+- **Custom Agents** (`~/.claude/agents/`) - Your personal AI agents
+- **Custom Commands** (`~/.claude/commands/`) - Shell commands and shortcuts  
+- **Plugins** (`~/.claude/plugins/`) - Installed Claude plugins
+- **Global Instructions** (`~/.claude/CLAUDE.md`) - Your universal Claude instructions
+
+### User Settings & Data
+- **Settings** (`~/.claude/settings.json`) - Personal preferences and configuration
+- **Projects** (`~/.claude/projects/`) - Project history and references
+- **Todos** (`~/.claude/todos/`) - Persistent task lists
+- **Shell Snapshots** (`~/.claude/shell-snapshots/`) - Command history
+
+### Mount Configuration
+The mount is automatically configured as:
+```json
+{
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+  ]
+}
+```
+
+### Benefits
+- **Seamless Experience** - All your Claude customizations work immediately
+- **Data Persistence** - Settings and history survive container rebuilds
+- **No Setup Required** - Works automatically when you open the container
+- **Cross-Project** - Same agents/commands available across all projects
 
 ## Migration from claude-docker
 
@@ -303,6 +336,9 @@ Create `.devcontainer/devcontainer.json` directly:
 {
   "name": "Database Development Environment",
   "image": "my-db-claude:latest",
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+  ],
   "features": {
     "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
       "servers": "serena,context7,database-tools"

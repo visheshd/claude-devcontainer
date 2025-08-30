@@ -45,6 +45,9 @@ docker run --rm claude-basic:latest basic-start
    {
      "name": "Basic Development Environment",
      "image": "claude-basic:latest",
+     "mounts": [
+       "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+     ],
      "features": {
        "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
          "servers": "serena,context7"

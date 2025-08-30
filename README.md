@@ -209,6 +209,12 @@ New git wrapper system provides:
 - **Automated Workflows**: CI/CD pipeline ensures features stay up-to-date
 - **Version Management**: Semantic versioning for reliable feature updates
 
+### Claude User Data Integration
+- **Automatic Mounting**: Your `~/.claude` directory is automatically mounted
+- **Complete Customization**: Custom agents, commands, and settings work seamlessly
+- **Data Persistence**: Settings and project history survive container rebuilds
+- **Zero Configuration**: Works immediately with your existing Claude setup
+
 ## 🧪 Testing Your Setup
 
 ### 1. Verify Images Built

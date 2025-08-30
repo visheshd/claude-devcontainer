@@ -52,6 +52,9 @@ docker run --rm claude-database:latest db-start
    {
      "name": "Database Development Environment",
      "image": "claude-database:latest",
+     "mounts": [
+       "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+     ],
      "features": {
        "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
          "servers": "serena,context7"
