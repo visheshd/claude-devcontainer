@@ -328,61 +328,144 @@ class DevContainerGenerator {
     console.log(chalk.blue.bold('🚀 Claude DevContainer Initialization\n'));
 
     try {
-      // Detect current setup
-      const hasClaudeDocker = fs.existsSync('../claude-docker.sh') || fs.existsSync('../src/claude-docker.sh');
-      if (hasClaudeDocker) {
-        console.log(chalk.green('✓ Detected existing claude-docker setup'));
+      // Check if DevContainer already exists
+      if (fs.existsSync('.devcontainer/devcontainer.json')) {
+        console.log(chalk.yellow('⚠️  DevContainer configuration already exists.'));
+        if (!this.options.interaction) {
+          console.log(chalk.blue('Use "claude-devcontainer migrate" to update existing configuration.\n'));
+          return;
+        }
+        
+        const { overwrite } = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'overwrite',
+            message: 'Overwrite existing configuration?',
+            default: false
+          }
+        ]);
+        
+        if (!overwrite) {
+          console.log(chalk.blue('Use "claude-devcontainer migrate" to update existing configuration.\n'));
+          return;
+        }
       }
 
-      // Select stack
-      const stack = await this.promptForStack();
-      const stackConfig = STACKS[stack];
+      // Detect project type
+      const detectedStacks = this.detectProjectType();
+      let stack;
+      
+      if (this.options.stack) {
+        stack = this.options.stack;
+        if (!STACKS[stack]) {
+          console.error(chalk.red(`Unknown stack: ${stack}`));
+          console.log(chalk.blue('Available stacks:'), Object.keys(STACKS).join(', '));
+          process.exit(1);
+        }
+      } else if (this.options.interaction === false) {
+        // No interaction mode - use detected stack or default
+        if (detectedStacks.length > 0) {
+          stack = detectedStacks[0];
+          console.log(chalk.green(`✓ Auto-detected stack: ${stack}`));
+        } else {
+          stack = 'custom'; // Default stack
+          console.log(chalk.blue(`Using default stack: ${stack}`));
+        }
+      } else {
+        // Interactive mode - prompt for stack
+        const choices = Object.entries(STACKS).map(([key, config]) => ({
+          name: `${config.name} - ${config.description}`,
+          value: key,
+          short: config.name
+        }));
+        
+        if (detectedStacks.length > 0) {
+          console.log(chalk.green('Detected project types:'), detectedStacks.join(', '));
+        }
 
+        const { selectedStack } = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'selectedStack',
+            message: 'Select development stack:',
+            choices,
+            default: detectedStacks[0] || 'custom'
+          }
+        ]);
+        stack = selectedStack;
+      }
+
+      const stackConfig = STACKS[stack];
       console.log(chalk.cyan(`\n📦 Selected: ${stackConfig.name}`));
       console.log(chalk.gray(`    ${stackConfig.description}\n`));
 
-      // Select features
-      const features = await this.promptForFeatures(stackConfig);
-      
-      // Get additional options
-      const options = await this.promptForOptions();
+      // Generate basic configuration
+      const config = this.generateBasicConfig(stack, stackConfig);
 
-      // Generate configuration
-      const config = this.generateDevContainerConfig(stack, features, options);
+      if (this.options.interaction !== false) {
+        console.log(chalk.blue('\n📋 Configuration Preview:'));
+        console.log(chalk.gray(JSON.stringify(config, null, 2)));
 
-      console.log(chalk.blue('\n📋 Configuration Preview:'));
-      console.log(chalk.gray(JSON.stringify(config, null, 2)));
+        const { confirm } = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'confirm',
+            message: 'Create DevContainer configuration?',
+            default: true
+          }
+        ]);
 
-      const { confirm } = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'confirm',
-          message: 'Create DevContainer configuration?',
-          default: true
-        }
-      ]);
-
-      if (confirm) {
-        await this.writeFiles(config, options);
-        
-        console.log(chalk.green.bold('\n🎉 DevContainer setup complete!\n'));
-        console.log(chalk.blue('Next steps:'));
-        console.log(chalk.white('  1. Open project in VS Code or compatible editor'));
-        console.log(chalk.white('  2. Use "Dev Containers: Reopen in Container" command'));
-        console.log(chalk.white('  3. Wait for container build and feature installation'));
-        console.log(chalk.white('  4. Start coding with Claude!\n'));
-
-        if (options.enableHostBuilds) {
-          console.log(chalk.yellow('⚠️  Host builds enabled - ensure SSH keys are set up:'));
-          console.log(chalk.white('   ssh-keygen -t rsa -b 4096'));
-          console.log(chalk.white('   cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys\n'));
+        if (!confirm) {
+          console.log(chalk.yellow('Configuration cancelled.\n'));
+          return;
         }
       }
+
+      // Create configuration files
+      await this.writeDevContainerFiles(config);
+      
+      console.log(chalk.green.bold('\n🎉 DevContainer setup complete!\n'));
+      console.log(chalk.blue('Next steps:'));
+      console.log(chalk.white('  1. Open project in VS Code or compatible editor'));
+      console.log(chalk.white('  2. Use "Dev Containers: Reopen in Container" command'));
+      console.log(chalk.white('  3. Wait for container build and feature installation'));
+      console.log(chalk.white('  4. Start coding with Claude!\n'));
 
     } catch (error) {
       console.error(chalk.red.bold('\n❌ Error:'), error.message);
       process.exit(1);
     }
+  }
+
+  generateBasicConfig(stack, stackConfig) {
+    const config = {
+      name: `${path.basename(process.cwd())} (${stackConfig.name})`,
+      image: stackConfig.image,
+      mounts: [
+        'source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind'
+      ],
+      features: {
+        'ghcr.io/visheshd/claude-devcontainer/claude-mcp:1': {
+          servers: 'serena,context7'
+        }
+      },
+      customizations: {
+        vscode: {
+          extensions: ['anthropic.claude-code', ...stackConfig.extensions]
+        }
+      }
+    };
+
+    if (stackConfig.ports && stackConfig.ports.length > 0) {
+      config.forwardPorts = stackConfig.ports;
+    }
+
+    return config;
+  }
+
+  async writeDevContainerFiles(config) {
+    await fs.ensureDir('.devcontainer');
+    await fs.writeJson('.devcontainer/devcontainer.json', config, { spaces: 2 });
   }
 
   async migrate(options = {}) {
@@ -408,7 +491,7 @@ class DevContainerGenerator {
       } catch (error) {
         spinner.fail('Failed to parse existing configuration');
         console.error(chalk.red('Error parsing devcontainer.json:'), error.message);
-        return;
+        process.exit(1);
       }
 
       // Analyze what needs updating
@@ -442,7 +525,7 @@ class DevContainerGenerator {
 
       if (options.dryRun) {
         console.log(chalk.blue('\n📋 Proposed changes (dry run):'));
-        const updatedConfig = await this.generateMigrationConfig(existingConfig, analysis);
+        const updatedConfig = await this.generateMigrationConfig(existingConfig, analysis, { dryRun: true });
         console.log(chalk.gray(JSON.stringify(updatedConfig, null, 2)));
         return;
       }
@@ -468,7 +551,7 @@ class DevContainerGenerator {
       console.log(chalk.green(`✅ Backup created: ${backupPath}`));
 
       // Generate and apply updated configuration
-      const updatedConfig = await this.generateMigrationConfig(existingConfig, analysis);
+      const updatedConfig = await this.generateMigrationConfig(existingConfig, analysis, options);
       await fs.writeJson(devcontainerPath, updatedConfig, { spaces: 2 });
 
       console.log(chalk.green.bold('\n🎉 Migration completed successfully!\n'));
@@ -561,7 +644,7 @@ class DevContainerGenerator {
     return analysis;
   }
 
-  async generateMigrationConfig(existingConfig, analysis) {
+  async generateMigrationConfig(existingConfig, analysis, options = {}) {
     // Start with existing config to preserve user customizations
     const updatedConfig = { ...existingConfig };
 
@@ -584,14 +667,19 @@ class DevContainerGenerator {
 
     // Add MCP features if missing
     if (analysis.mcpFeatures.length === 0) {
-      const { addMCP } = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'addMCP',
-          message: 'Add recommended MCP servers (serena, context7)?',
-          default: true
-        }
-      ]);
+      let addMCP = true; // Default to true for dry-run mode
+      
+      if (!options.dryRun) {
+        const response = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'addMCP',
+            message: 'Add recommended MCP servers (serena, context7)?',
+            default: true
+          }
+        ]);
+        addMCP = response.addMCP;
+      }
 
       if (addMCP) {
         if (!updatedConfig.features) {
@@ -627,73 +715,92 @@ class DevContainerGenerator {
   }
 }
 
-// CLI Commands
-program
-  .name('claude-devcontainer')
-  .description('CLI tool for Claude DevContainer setup and migration')
-  .version('1.0.0');
+// CLI Command Handlers (extracted for testability)
+export async function handleInit(options = {}) {
+  const generator = new DevContainerGenerator(options);
+  await generator.init();
+}
 
-program
-  .command('init')
-  .description('Initialize a new Claude DevContainer configuration')
-  .option('-s, --stack <stack>', 'Pre-select development stack')
-  .option('--no-interaction', 'Run without interactive prompts')
-  .action(async (options) => {
-    const generator = new DevContainerGenerator(options);
-    await generator.init();
-  });
+export async function handleMigrate(options = {}) {
+  const generator = new DevContainerGenerator();
+  await generator.migrate(options);
+}
 
-program
-  .command('migrate')
-  .description('Migrate existing DevContainer configuration to latest Claude setup')
-  .option('--dry-run', 'Show proposed changes without applying them')
-  .option('--auto', 'Apply safe changes automatically without prompting')
-  .action(async (options) => {
-    const generator = new DevContainerGenerator();
-    await generator.migrate(options);
-  });
+export async function handleCheck() {
+  const generator = new DevContainerGenerator();
+  await generator.migrate({ dryRun: true });
+}
 
-program
-  .command('check')
-  .description('Analyze existing DevContainer configuration for issues')
-  .action(async () => {
-    const generator = new DevContainerGenerator();
-    await generator.migrate({ dryRun: true });
-  });
+export function handleDetect() {
+  const generator = new DevContainerGenerator();
+  const stacks = generator.detectProjectType();
+  
+  if (stacks.length > 0) {
+    console.log(chalk.green('Detected project types:'));
+    stacks.forEach(stack => console.log(chalk.blue(`  • ${stack}`)));
+  } else {
+    console.log(chalk.yellow('No specific project type detected'));
+  }
+}
 
-program
-  .command('detect')
-  .description('Detect project type in current directory')
-  .action(() => {
-    const generator = new DevContainerGenerator();
-    const stacks = generator.detectProjectType();
-    
-    if (stacks.length > 0) {
-      console.log(chalk.green('Detected project types:'));
-      stacks.forEach(stack => console.log(chalk.blue(`  • ${stack}`)));
-    } else {
-      console.log(chalk.yellow('No specific project type detected'));
+export function handleStacks() {
+  console.log(chalk.blue.bold('Available Development Stacks:\n'));
+  
+  Object.entries(STACKS).forEach(([key, config]) => {
+    console.log(chalk.green(`${config.name} (${key})`));
+    console.log(chalk.gray(`  ${config.description}`));
+    console.log(chalk.white(`  Image: ${config.image}`));
+    if (config.features.length > 0) {
+      console.log(chalk.white(`  Features: ${config.features.join(', ')}`));
     }
+    console.log();
   });
+}
 
-program
-  .command('stacks')
-  .description('List available development stacks')
-  .action(() => {
-    console.log(chalk.blue.bold('Available Development Stacks:\n'));
+// CLI Setup function (extracted for testability)
+export function setupCLI() {
+  program
+    .name('claude-devcontainer')
+    .description('CLI tool for Claude DevContainer setup and migration')
+    .version('1.0.0');
+
+  program
+    .command('init')
+    .description('Initialize a new Claude DevContainer configuration')
+    .option('-s, --stack <stack>', 'Pre-select development stack')
+    .option('--no-interaction', 'Run without interactive prompts')
+    .action(handleInit);
+
+  program
+    .command('migrate')
+    .description('Migrate existing DevContainer configuration to latest Claude setup')
+    .option('--dry-run', 'Show proposed changes without applying them')
+    .option('--auto', 'Apply safe changes automatically without prompting')
+    .action(handleMigrate);
+
+  program
+    .command('check')
+    .description('Analyze existing DevContainer configuration for issues')
+    .action(handleCheck);
+
+  program
+    .command('detect')
+    .description('Detect project type in current directory')
+    .action(handleDetect);
+
+  program
+    .command('stacks')
+    .description('List available development stacks')
+    .action(handleStacks);
     
-    Object.entries(STACKS).forEach(([key, config]) => {
-      console.log(chalk.green(`${config.name} (${key})`));
-      console.log(chalk.gray(`  ${config.description}`));
-      console.log(chalk.white(`  Image: ${config.image}`));
-      if (config.features.length > 0) {
-        console.log(chalk.white(`  Features: ${config.features.join(', ')}`));
-      }
-      console.log();
-    });
-  });
+  return program;
+}
 
-program.parse();
+// Only run CLI when this file is executed directly (not when imported for testing)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  setupCLI();
+  program.parse();
+}
 
 // Export for testing
 export { DevContainerGenerator };
