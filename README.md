@@ -6,7 +6,7 @@ A comprehensive DevContainer-based development environment for Claude Code, feat
 
 [![Build Images](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml/badge.svg)](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml)
 
-🚨 **Migration Required**: See [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) - old setup no longer functions  
+🚨 **For Existing Users**: The old claude-docker setup no longer works - follow setup instructions below  
 📋 **MCP Setup Guide**: See [MCP_SERVERS.md](MCP_SERVERS.md) for customizing or adding more MCP servers
 
 ## 🎯 Benefits Over Legacy Setup
@@ -192,10 +192,9 @@ code test-project/
 
 ## 📖 Documentation & Guides
 
-- **📋 [Migration Guide](docs/MIGRATION_GUIDE.md)** - Step-by-step migration from claude-docker
 - **🔌 [MCP Setup Guide](MCP_SERVERS.md)** - Configure MCP servers for your workflow
 - **🏗️ [DevContainer Features](src/)** - Advanced feature configuration
-- **📝 [CLI Tool Guide](tools/claude-devcontainer/)** - Migration CLI documentation
+- **📝 [CLI Tool Guide](tools/claude-devcontainer/)** - CLI tool documentation
 
 ## 🤝 Contributing
 
@@ -246,8 +245,8 @@ code . && # "Dev Containers: Reopen in Container"
 **Critical Information:**
 - ❌ The original `claude-docker.sh` script has been **removed** from the repository
 - ❌ Running old commands will result in "file not found" errors
-- ❌ There is **no backwards compatibility** - you must migrate to DevContainers
-- ⚠️ See [Migration Guide](docs/MIGRATION_GUIDE.md) for **mandatory migration** instructions
+- ❌ There is **no backwards compatibility** - you must use the DevContainer setup above
+- ⚠️ Follow the **Quick Start** section above to get started
 
 **This is a breaking change because:**
 - 🐛 **Architectural Issues**: The old approach had fundamental problems with git worktree detection
