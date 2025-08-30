@@ -1,8 +1,10 @@
 # Claude DevContainer Ecosystem
 
+**Fast, isolated development with Claude Code across multiple git worktrees, native host builds via SSH, and `--dangerously-skip-permissions` for maximum development speed.**
+
 ⚠️ **BREAKING CHANGE**: The legacy `claude-docker` setup has been completely replaced and **no longer works**. You must migrate to the DevContainer approach below.
 
-A comprehensive DevContainer-based development environment for Claude Code, featuring optimized, stack-specific containers with native IDE integration and automated git worktree support.
+A comprehensive DevContainer-based development environment that enables seamless multi-worktree development, containerized Claude Code with unrestricted permissions, and native host system builds through SSH integration.
 
 [![Build Images](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml/badge.svg)](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml)
 
