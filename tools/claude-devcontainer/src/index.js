@@ -9,6 +9,7 @@ import path from 'path';
 import yaml from 'yaml';
 import { glob } from 'glob';
 import { fileURLToPath } from 'url';
+import { MigrationEngine } from './migrations/MigrationEngine.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,6 +88,7 @@ const STACKS = {
 class DevContainerGenerator {
   constructor(options = {}) {
     this.options = options;
+    this.migrationEngine = new MigrationEngine();
   }
 
   detectProjectType(projectPath = '.') {
@@ -517,10 +519,10 @@ class DevContainerGenerator {
         process.exit(1);
       }
 
-      // Analyze what needs updating
-      const analysis = await this.analyzeConfig(existingConfig);
+      // Analyze what needs updating using the new migration engine
+      const analysis = await this.migrationEngine.analyze(existingConfig);
       
-      if (analysis.issues.length === 0) {
+      if (analysis.isUpToDate) {
         console.log(chalk.green('✅ Your DevContainer configuration is already up to date!\n'));
         return;
       }
@@ -528,28 +530,18 @@ class DevContainerGenerator {
       // Show analysis results
       console.log(chalk.blue('\n📋 Configuration Analysis:'));
       console.log(chalk.white(`  Current image: ${chalk.cyan(existingConfig.image || 'not specified')}`));
-      
-      if (analysis.hasClaudeMount) {
-        console.log(chalk.green('  ✅ .claude directory mounting: configured'));
-      } else {
-        console.log(chalk.red('  ❌ .claude directory mounting: missing'));
-      }
-
-      if (analysis.mcpFeatures.length > 0) {
-        console.log(chalk.green(`  ✅ MCP servers: ${analysis.mcpFeatures.join(', ')}`));
-      } else {
-        console.log(chalk.yellow('  ⚠️  MCP servers: none configured'));
-      }
+      console.log(chalk.white(`  Available change sets: ${analysis.applicableChangeSets}`));
+      console.log(chalk.white(`  Changes needed: ${analysis.neededChangeSets.length}`));
 
       console.log(chalk.blue('\n🔧 Issues to fix:'));
       analysis.issues.forEach(issue => {
-        console.log(chalk.red(`  • ${issue}`));
+        console.log(chalk.red(`  • ${issue.name}: ${issue.description}`));
       });
 
       if (options.dryRun) {
         console.log(chalk.blue('\n📋 Proposed changes (dry run):'));
-        const updatedConfig = await this.generateMigrationConfig(existingConfig, analysis, { dryRun: true });
-        console.log(chalk.gray(JSON.stringify(updatedConfig, null, 2)));
+        const preview = await this.migrationEngine.preview(existingConfig);
+        console.log(chalk.gray(JSON.stringify(preview.finalConfig, null, 2)));
         return;
       }
 
@@ -573,15 +565,37 @@ class DevContainerGenerator {
       await fs.copy(devcontainerPath, backupPath);
       console.log(chalk.green(`✅ Backup created: ${backupPath}`));
 
-      // Generate and apply updated configuration
-      const updatedConfig = await this.generateMigrationConfig(existingConfig, analysis, options);
-      await fs.writeJson(devcontainerPath, updatedConfig, { spaces: 2 });
+      // Apply migrations using the new migration engine
+      const migrationOptions = {
+        interactive: !options.auto,
+        dryRun: false,
+        autoApprove: !!options.auto
+      };
+      
+      const results = await this.migrationEngine.migrate(existingConfig, migrationOptions);
+      
+      if (results.errors && results.errors.length > 0) {
+        console.log(chalk.red.bold('\n❌ Some migrations failed:'));
+        results.errors.forEach(error => {
+          console.log(chalk.red(`  • ${error.name}: ${error.error}`));
+        });
+      }
+
+      // Write the updated configuration
+      await fs.writeJson(devcontainerPath, results.config, { spaces: 2 });
 
       console.log(chalk.green.bold('\n🎉 Migration completed successfully!\n'));
       console.log(chalk.blue('Changes applied:'));
-      analysis.issues.forEach(issue => {
-        console.log(chalk.green(`  ✅ Fixed: ${issue}`));
+      results.applied.forEach(change => {
+        console.log(chalk.green(`  ✅ ${change.name}`));
       });
+
+      if (results.skipped.length > 0) {
+        console.log(chalk.blue('\nSkipped:'));
+        results.skipped.forEach(skip => {
+          console.log(chalk.yellow(`  ⚠️  ${skip.name}: ${skip.reason}`));
+        });
+      }
 
       console.log(chalk.blue('\nNext steps:'));
       console.log(chalk.white('  1. Rebuild your DevContainer to apply changes'));
@@ -594,249 +608,6 @@ class DevContainerGenerator {
     }
   }
 
-  async analyzeConfig(existingConfig) {
-    const analysis = {
-      hasClaudeMount: false,
-      mcpFeatures: [],
-      outdatedImage: null,
-      issues: [],
-      isWorktree: false,
-      hardcodedWorktreePaths: [],
-      customizations: {
-        mounts: [],
-        extensions: [],
-        ports: [],
-        environment: {}
-      }
-    };
-
-    // Check for .claude mount
-    if (existingConfig.mounts) {
-      analysis.hasClaudeMount = existingConfig.mounts.some(mount => 
-        mount.includes('.claude') && mount.includes('/home/claude-user/.claude')
-      );
-      
-      // Preserve custom mounts (non-.claude mounts)
-      analysis.customizations.mounts = existingConfig.mounts.filter(mount => 
-        !mount.includes('.claude')
-      );
-    }
-
-    if (!analysis.hasClaudeMount) {
-      analysis.issues.push('Missing .claude directory mount for user customizations');
-    }
-
-    // Check for MCP features
-    if (existingConfig.features) {
-      const mcpFeature = existingConfig.features['ghcr.io/visheshd/claude-devcontainer/claude-mcp:1'];
-      if (mcpFeature && mcpFeature.servers) {
-        analysis.mcpFeatures = mcpFeature.servers.split(',').map(s => s.trim());
-      }
-    }
-
-    // Check for outdated images
-    const imageMapping = {
-      'claude-docker:latest': 'claude-base:latest',
-      'claude-docker': 'claude-base:latest'
-    };
-
-    if (existingConfig.image && imageMapping[existingConfig.image]) {
-      analysis.outdatedImage = {
-        current: existingConfig.image,
-        recommended: imageMapping[existingConfig.image]
-      };
-      analysis.issues.push(`Outdated image reference: ${existingConfig.image} → ${imageMapping[existingConfig.image]}`);
-    }
-
-    // Preserve custom VS Code extensions
-    if (existingConfig.customizations?.vscode?.extensions) {
-      const standardExtensions = ['anthropic.claude-code'];
-      analysis.customizations.extensions = existingConfig.customizations.vscode.extensions.filter(ext => 
-        !standardExtensions.includes(ext)
-      );
-    }
-
-    // Preserve custom ports
-    if (existingConfig.forwardPorts) {
-      analysis.customizations.ports = existingConfig.forwardPorts;
-    }
-
-    // Check if MCP servers are missing or could be improved
-    if (analysis.mcpFeatures.length === 0) {
-      analysis.issues.push('No MCP servers configured - consider adding serena and context7');
-    }
-
-    // Check for worktree-specific configurations that need to be made dynamic
-    this.detectWorktreeConfiguration(existingConfig, analysis);
-
-    return analysis;
-  }
-
-  detectWorktreeConfiguration(existingConfig, analysis) {
-    const worktreeIndicators = [
-      'WORKTREE_DETECTED',
-      'WORKTREE_HOST_MAIN_REPO', 
-      'WORKTREE_CONTAINER_MAIN_REPO',
-      'WORKTREE_NAME'
-    ];
-
-    // Check for worktree environment variables
-    if (existingConfig.containerEnv) {
-      const hasWorktreeEnv = worktreeIndicators.some(indicator => 
-        existingConfig.containerEnv[indicator] !== undefined
-      );
-      
-      if (hasWorktreeEnv) {
-        analysis.isWorktree = true;
-        
-        // Detect hardcoded paths in environment variables
-        Object.entries(existingConfig.containerEnv).forEach(([key, value]) => {
-          if (typeof value === 'string' && (
-              value.includes('/Users/') || 
-              value.includes('/home/') ||
-              value.match(/^\/[a-zA-Z]/) // Absolute paths
-            )) {
-            analysis.hardcodedWorktreePaths.push(`containerEnv.${key}: ${value}`);
-          }
-        });
-      }
-    }
-
-    // Check for hardcoded paths in mounts
-    if (existingConfig.mounts) {
-      existingConfig.mounts.forEach((mount, index) => {
-        if (mount.includes('/Users/') || mount.includes('/home/')) {
-          analysis.hardcodedWorktreePaths.push(`mounts[${index}]: ${mount}`);
-        }
-      });
-    }
-
-    // Check for hardcoded workspace folder
-    if (existingConfig.workspaceFolder && 
-        (existingConfig.workspaceFolder.includes('/Users/') || 
-         existingConfig.workspaceFolder.includes('/home/'))) {
-      analysis.hardcodedWorktreePaths.push(`workspaceFolder: ${existingConfig.workspaceFolder}`);
-    }
-
-    // Add issues for hardcoded paths
-    if (analysis.hardcodedWorktreePaths.length > 0) {
-      analysis.issues.push('Hardcoded paths detected - configuration needs to be made dynamic for portability');
-    }
-  }
-
-  async generateMigrationConfig(existingConfig, analysis, options = {}) {
-    // Start with existing config to preserve user customizations
-    const updatedConfig = { ...existingConfig };
-
-    // Fix image reference if needed
-    if (analysis.outdatedImage) {
-      updatedConfig.image = analysis.outdatedImage.recommended;
-    }
-
-    // Add or fix .claude mount
-    if (!analysis.hasClaudeMount) {
-      const claudeMount = "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind";
-      
-      if (!updatedConfig.mounts) {
-        updatedConfig.mounts = [];
-      }
-      
-      // Add .claude mount first, then preserve custom mounts
-      updatedConfig.mounts = [claudeMount, ...analysis.customizations.mounts];
-    }
-
-    // Add MCP features if missing
-    if (analysis.mcpFeatures.length === 0) {
-      let addMCP = true; // Default to true for dry-run mode
-      
-      if (!options.dryRun) {
-        const response = await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'addMCP',
-            message: 'Add recommended MCP servers (serena, context7)?',
-            default: true
-          }
-        ]);
-        addMCP = response.addMCP;
-      }
-
-      if (addMCP) {
-        if (!updatedConfig.features) {
-          updatedConfig.features = {};
-        }
-        
-        updatedConfig.features['ghcr.io/visheshd/claude-devcontainer/claude-mcp:1'] = {
-          servers: 'serena,context7'
-        };
-      }
-    }
-
-    // Ensure Claude Code extension is present
-    if (!updatedConfig.customizations) {
-      updatedConfig.customizations = {};
-    }
-    if (!updatedConfig.customizations.vscode) {
-      updatedConfig.customizations.vscode = {};
-    }
-    if (!updatedConfig.customizations.vscode.extensions) {
-      updatedConfig.customizations.vscode.extensions = [];
-    }
-
-    const extensions = updatedConfig.customizations.vscode.extensions;
-    if (!extensions.includes('anthropic.claude-code')) {
-      extensions.unshift('anthropic.claude-code');
-    }
-
-    // Remove duplicates while preserving order
-    updatedConfig.customizations.vscode.extensions = [...new Set(extensions)];
-
-    // Fix worktree configurations to be dynamic
-    if (analysis.isWorktree && analysis.hardcodedWorktreePaths.length > 0) {
-      this.makeWorktreeConfigDynamic(updatedConfig);
-    }
-
-    return updatedConfig;
-  }
-
-  makeWorktreeConfigDynamic(config) {
-    // Make workspace folder dynamic
-    if (config.workspaceFolder && config.workspaceFolder.includes('/workspaces/')) {
-      config.workspaceFolder = '/workspaces/${localWorkspaceFolderBasename}';
-    }
-
-    // Make environment variables dynamic
-    if (config.containerEnv) {
-      // Make WORKTREE_NAME dynamic
-      if (config.containerEnv.WORKTREE_NAME) {
-        config.containerEnv.WORKTREE_NAME = '${localWorkspaceFolderBasename}';
-      }
-
-      // Make main repo paths relative and dynamic
-      if (config.containerEnv.WORKTREE_HOST_MAIN_REPO) {
-        // Extract the parent directory path and make it relative
-        config.containerEnv.WORKTREE_HOST_MAIN_REPO = '${localWorkspaceFolder}/..';
-      }
-
-      // Keep container main repo consistent
-      if (config.containerEnv.WORKTREE_CONTAINER_MAIN_REPO) {
-        config.containerEnv.WORKTREE_CONTAINER_MAIN_REPO = '/main-repo';
-      }
-    }
-
-    // Make mounts dynamic
-    if (config.mounts) {
-      config.mounts = config.mounts.map(mount => {
-        // Handle main repo mount
-        if (mount.includes('target=/main-repo') && mount.includes('source=')) {
-          return 'source=${localWorkspaceFolder}/..,target=/main-repo,type=bind,consistency=cached';
-        }
-        
-        // Keep other mounts as-is (like .claude mount)
-        return mount;
-      });
-    }
-  }
 }
 
 // CLI Command Handlers (extracted for testability)
@@ -853,6 +624,95 @@ export async function handleMigrate(options = {}) {
 export async function handleCheck() {
   const generator = new DevContainerGenerator();
   await generator.migrate({ dryRun: true });
+}
+
+export async function handleChangeSets() {
+  const generator = new DevContainerGenerator();
+  const changeSets = await generator.migrationEngine.registry.getAllChangeSets();
+  
+  console.log(chalk.blue.bold('Available Change Sets:\n'));
+  
+  for (const changeSet of changeSets) {
+    console.log(chalk.green(`${changeSet.name} (${changeSet.id})`));
+    console.log(chalk.gray(`  ${changeSet.description}`));
+    console.log(chalk.white(`  Version: ${changeSet.version}`));
+    if (changeSet.dependencies.length > 0) {
+      console.log(chalk.white(`  Dependencies: ${changeSet.dependencies.join(', ')}`));
+    }
+    if (changeSet.conflicts.length > 0) {
+      console.log(chalk.white(`  Conflicts: ${changeSet.conflicts.join(', ')}`));
+    }
+    console.log();
+  }
+}
+
+export async function handleMigrateSpecific(changeSetIds, options = {}) {
+  console.log(chalk.blue.bold('🔄 Applying Specific Change Sets\n'));
+  
+  try {
+    // Check for existing devcontainer.json
+    const devcontainerPath = '.devcontainer/devcontainer.json';
+    const hasExistingConfig = fs.existsSync(devcontainerPath);
+
+    if (!hasExistingConfig) {
+      console.log(chalk.yellow('⚠️  No existing DevContainer configuration found.'));
+      console.log(chalk.white('Consider using "claude-devcontainer init" to create a new configuration.\n'));
+      return;
+    }
+
+    // Load existing configuration
+    const configContent = await fs.readFile(devcontainerPath, 'utf8');
+    const strippedContent = stripJsonComments(configContent);
+    const existingConfig = JSON.parse(strippedContent);
+
+    const generator = new DevContainerGenerator();
+    
+    // Apply specific change sets
+    const migrationOptions = {
+      interactive: !options.auto,
+      dryRun: options.dryRun,
+      autoApprove: !!options.auto,
+      changeSetIds
+    };
+    
+    const results = await generator.migrationEngine.migrate(existingConfig, migrationOptions);
+    
+    if (options.dryRun) {
+      console.log(chalk.blue('\n📋 Preview of changes:'));
+      console.log(chalk.gray(JSON.stringify(results.finalConfig, null, 2)));
+      return;
+    }
+    
+    if (results.applied.length === 0) {
+      console.log(chalk.green('✅ No changes were needed.\n'));
+      return;
+    }
+
+    // Create backup
+    const backupPath = `${devcontainerPath}.backup.${Date.now()}`;
+    await fs.copy(devcontainerPath, backupPath);
+    console.log(chalk.green(`✅ Backup created: ${backupPath}`));
+
+    // Write the updated configuration
+    await fs.writeJson(devcontainerPath, results.config, { spaces: 2 });
+
+    console.log(chalk.green.bold('\n🎉 Change sets applied successfully!\n'));
+    console.log(chalk.blue('Changes applied:'));
+    results.applied.forEach(change => {
+      console.log(chalk.green(`  ✅ ${change.name}`));
+    });
+
+    if (results.errors && results.errors.length > 0) {
+      console.log(chalk.red.bold('\nErrors:'));
+      results.errors.forEach(error => {
+        console.log(chalk.red(`  ❌ ${error.name}: ${error.error}`));
+      });
+    }
+
+  } catch (error) {
+    console.error(chalk.red.bold('\n❌ Error:'), error.message);
+    process.exit(1);
+  }
 }
 
 export function handleDetect() {
@@ -903,9 +763,21 @@ export function setupCLI() {
     .action(handleMigrate);
 
   program
+    .command('migrate-specific <changesets...>')
+    .description('Apply specific change sets (e.g., add-claude-mount update-image)')
+    .option('--dry-run', 'Show proposed changes without applying them')
+    .option('--auto', 'Apply changes automatically without prompting')
+    .action((changesets, options) => handleMigrateSpecific(changesets, options));
+
+  program
     .command('check')
     .description('Analyze existing DevContainer configuration for issues')
     .action(handleCheck);
+
+  program
+    .command('change-sets')
+    .description('List all available change sets')
+    .action(handleChangeSets);
 
   program
     .command('detect')
