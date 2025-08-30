@@ -2,30 +2,25 @@
 
 **Fast, isolated development with Claude Code across multiple git worktrees, native host builds via SSH, and `--dangerously-skip-permissions` for maximum development speed.**
 
-⚠️ **BREAKING CHANGE**: The legacy `claude-docker` setup has been completely replaced and **no longer works**. You must migrate to the DevContainer approach below.
-
 A comprehensive DevContainer-based development environment that enables seamless multi-worktree development, containerized Claude Code with unrestricted permissions, and native host system builds through SSH integration.
 
 [![Build Images](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml/badge.svg)](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml)
 
-🚨 **For Existing Users**: The old claude-docker setup no longer works - follow setup instructions below  
 📋 **MCP Setup Guide**: See [MCP_SERVERS.md](MCP_SERVERS.md) for customizing or adding more MCP servers
 
-## 🎯 Benefits Over Legacy Setup
+## 🎯 Key Benefits
 
-✅ **Eliminated Complexity**: Removes ~300 lines of git worktree detection code  
 ✅ **Native IDE Integration**: Seamless VS Code, Cursor, and compatible editor support  
 ✅ **Stack Optimization**: Purpose-built containers for Python ML, Rust Tauri, Next.js  
 ✅ **Complete Isolation**: No conflicts between different tech stacks or projects  
-✅ **Preserved Functionality**: All MCP servers and SSH host builds maintained  
-✅ **Faster Startup**: Optimized containers reduce startup time by 50%  
-✅ **Better DX**: Native DevContainer features instead of external scripts  
+✅ **MCP Integration**: Built-in serena and context7 MCP servers for enhanced AI assistance  
+✅ **Fast Startup**: Optimized containers with intelligent layering  
 ✅ **Automated Worktrees**: Git wrapper system handles worktree operations seamlessly  
-✅ **Cross-Platform**: Resolved architecture issues (Apple Silicon/Rosetta compatibility)  
+✅ **Cross-Platform**: Full compatibility across Apple Silicon, Intel, and Linux  
+✅ **SSH Host Builds**: Native builds on host system for optimal performance  
 
 ## 🚀 Quick Start
 
-### For New Projects
 ```bash
 # Install the CLI tool locally (one-time setup)
 cd tools/claude-devcontainer
@@ -40,27 +35,26 @@ code .
 # Command Palette: "Dev Containers: Reopen in Container"
 ```
 
-### For Existing claude-docker Users
-
-⚠️ **IMPORTANT**: The old claude-docker setup no longer works and must be migrated.
+### CLI Commands
 
 ```bash
-# Install the CLI tool locally (one-time setup)
-cd tools/claude-devcontainer
-npm install
-npm link
-
-# Navigate to your existing project
-cd /path/to/your/project
-
-# Run migration tool
+# Initialize a new DevContainer configuration
 claude-devcontainer init
 
-# Follow interactive prompts to migrate
-# Your existing .env and .claude/ configs are preserved
+# Analyze existing DevContainer configuration
+claude-devcontainer check
+
+# Upgrade existing DevContainer to latest features
+claude-devcontainer migrate
+
+# Detect project type
+claude-devcontainer detect
+
+# List available development stacks
+claude-devcontainer stacks
 ```
 
-## 🏗️ New Architecture
+## 🏗️ Architecture
 
 ### Layer 1: Base Image
 - **claude-base**: Foundation with Claude Code + essential dev tools
@@ -189,31 +183,31 @@ claude-devcontainer init -s custom
 4. **Use environment variables** for configuration
 5. **Document your customizations** in README files
 
-## 🚀 Recent Improvements
+## 🚀 Features & Capabilities
 
-### Git Worktree Automation
-New git wrapper system provides:
+### Git Worktree Integration
 - **Atomic Operations**: All git worktree operations are transaction-safe
 - **Automatic Setup**: DevContainers automatically configure worktree mounts
-- **Cross-Platform**: Resolved architecture issues on Apple Silicon
-- **Simplified Management**: No manual worktree detection or configuration needed
+- **Cross-Platform**: Full compatibility across Apple Silicon, Intel, and Linux
+- **Seamless Management**: Automated worktree detection and configuration
 
-### Architecture & Performance
-- **Rosetta Compatibility**: Fixed architecture detection issues on Apple Silicon Macs
-- **Simplified Build Process**: Removed complex backup and recovery systems
-- **Optimized Images**: Reduced size by 50-70% through package cleanup and smart layering
-- **Portable Setup**: DevContainer configurations work across different host systems
+### Optimized Performance  
+- **Smart Layering**: Optimized Docker images with intelligent caching
+- **Fast Startup**: Minimal container overhead for quick development cycles
+- **Resource Efficient**: Lean images without unnecessary dependencies
+- **Platform Native**: Architecture-specific optimizations for your system
 
-### Publishing & Distribution
-- **GitHub Container Registry**: DevContainer features published to `ghcr.io`
-- **Automated Workflows**: CI/CD pipeline ensures features stay up-to-date
-- **Version Management**: Semantic versioning for reliable feature updates
+### DevContainer Features
+- **MCP Integration**: Built-in serena and context7 servers with extensible configuration
+- **Upgrade Tools**: Automated migration and configuration analysis tools
+- **Stack Templates**: Pre-configured environments for Python ML, Rust Tauri, Next.js
+- **Custom Extensions**: Easy customization with your own Docker images
 
-### Claude User Data Integration
-- **Automatic Mounting**: Your `~/.claude` directory is automatically mounted
+### Claude Integration
+- **User Data Mounting**: Your `~/.claude` directory automatically mounted and persistent
 - **Complete Customization**: Custom agents, commands, and settings work seamlessly
-- **Data Persistence**: Settings and project history survive container rebuilds
 - **Zero Configuration**: Works immediately with your existing Claude setup
+- **Data Persistence**: Settings and project history survive container rebuilds
 
 ## 🧪 Testing Your Setup
 
@@ -251,7 +245,17 @@ ls -la .devcontainer/
 cat .devcontainer/devcontainer.json
 ```
 
-### 4. Test in VS Code
+### 4. Test DevContainer Upgrade Tools
+```bash
+# Test configuration analysis
+claude-devcontainer check
+
+# Test upgrade functionality (if you have an older DevContainer config)
+claude-devcontainer migrate --dry-run  # Preview changes
+claude-devcontainer migrate           # Apply upgrades
+```
+
+### 5. Test in VS Code
 ```bash
 # Open in VS Code
 code test-project/
@@ -264,6 +268,7 @@ code test-project/
 ## 📖 Documentation & Guides
 
 - **🔌 [MCP Setup Guide](MCP_SERVERS.md)** - Configure MCP servers for your workflow
+- **🔄 [Migration Guide](docs/migration-guide.md)** - Upgrade DevContainer configurations to latest features
 - **🏗️ [DevContainer Features](src/)** - Advanced feature configuration
 - **📝 [CLI Tool Guide](tools/claude-devcontainer/)** - CLI tool documentation
 
@@ -309,27 +314,3 @@ code . && # "Dev Containers: Reopen in Container"
 - Update documentation for any new features
 - Follow existing code patterns and conventions
 
-## ⚠️ Legacy claude-docker (BREAKING CHANGE)
-
-🚨 **The monolithic claude-docker setup has been completely removed and NO LONGER WORKS.**
-
-**Critical Information:**
-- ❌ The original `claude-docker.sh` script has been **removed** from the repository
-- ❌ Running old commands will result in "file not found" errors
-- ❌ There is **no backwards compatibility** - you must use the DevContainer setup above
-- ⚠️ Follow the **Quick Start** section above to get started
-
-**This is a breaking change because:**
-- 🐛 **Architectural Issues**: The old approach had fundamental problems with git worktree detection
-- 📈 **Performance Problems**: Monolithic container was slow and resource-intensive  
-- 🔧 **Maintenance Burden**: 300+ lines of complex worktree code were unmaintainable
-- 🎯 **Better Solution Available**: DevContainers provide superior developer experience
-
-**Migration Benefits:**
-- ✅ **50% faster startup** with optimized containers
-- ✅ **Native IDE integration** instead of external terminal
-- ✅ **Complete project isolation** prevents conflicts
-- ✅ **Automated worktree support** replaces complex detection logic
-- ✅ **Stack-specific optimizations** for better performance
-
-**🚨 ACTION REQUIRED: You must migrate to continue using this project.**
