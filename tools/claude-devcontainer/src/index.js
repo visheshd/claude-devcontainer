@@ -15,6 +15,27 @@ const __dirname = path.dirname(__filename);
 
 const program = new Command();
 
+// Helper function to strip JSON comments (for DevContainer files)
+function stripJsonComments(jsonString) {
+  return jsonString
+    .split('\n')
+    .map(line => {
+      // Remove line comments but preserve strings
+      const commentIndex = line.indexOf('//');
+      if (commentIndex !== -1) {
+        // Check if // is inside a string
+        const beforeComment = line.substring(0, commentIndex);
+        const quotes = (beforeComment.match(/"/g) || []).length;
+        if (quotes % 2 === 0) {
+          // Even number of quotes means // is not inside a string
+          return line.substring(0, commentIndex).trimEnd();
+        }
+      }
+      return line;
+    })
+    .join('\n');
+}
+
 // Stack configurations
 const STACKS = {
   'python-ml': {
@@ -486,7 +507,9 @@ class DevContainerGenerator {
       const spinner = ora('Analyzing existing configuration...').start();
       let existingConfig;
       try {
-        existingConfig = await fs.readJson(devcontainerPath);
+        const configContent = await fs.readFile(devcontainerPath, 'utf8');
+        const strippedContent = stripJsonComments(configContent);
+        existingConfig = JSON.parse(strippedContent);
         spinner.succeed('Existing configuration loaded');
       } catch (error) {
         spinner.fail('Failed to parse existing configuration');
@@ -796,8 +819,11 @@ export function setupCLI() {
   return program;
 }
 
-// Only run CLI when this file is executed directly (not when imported for testing)
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Only run CLI when this file is executed (directly or through bin wrapper)
+// Check if we're being run as a script (not imported for testing)
+const isMainModule = process.argv[1].endsWith('src/index.js') || process.argv[1].endsWith('claude-devcontainer');
+
+if (isMainModule) {
   setupCLI();
   program.parse();
 }
