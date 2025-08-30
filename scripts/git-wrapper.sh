@@ -12,11 +12,43 @@ GIT_UTILS_SCRIPT="/home/claude-user/scripts/git_utils.py"
 # Debug mode (set to true for verbose output)
 DEBUG_MODE="${GIT_WRAPPER_DEBUG:-false}"
 
-# Function to log debug messages
+# Persistent log file for all wrapper executions
+LOG_FILE="${GIT_WRAPPER_LOG_FILE:-/tmp/git-wrapper.log}"
+
+# Host path preservation
+SAVED_HOST_GIT_PATH="${GIT_WRAPPER_SAVED_HOST_PATH:-}"
+
+# Function to log with timestamp to persistent file
+persistent_log() {
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S.%3N')
+    local pid=$$
+    local pwd_dir=$(pwd)
+    echo "[$timestamp] [PID:$pid] [PWD:$pwd_dir] $1" >> "$LOG_FILE"
+}
+
+# Function to log debug messages (both stderr and file)
 debug_log() {
+    local message="$1"
     if [ "$DEBUG_MODE" = "true" ]; then
-        echo "[git-wrapper] $1" >&2
+        echo "[git-wrapper] $message" >&2
     fi
+    persistent_log "$message"
+}
+
+# Function to log call stack trace
+log_call_stack() {
+    persistent_log "=== CALL STACK TRACE ==="
+    persistent_log "Git command: $*"
+    persistent_log "Parent PID: $PPID"
+    persistent_log "Process tree:"
+    if command -v pstree >/dev/null 2>&1; then
+        pstree -p $PPID 2>/dev/null | head -10 >> "$LOG_FILE" || persistent_log "pstree failed"
+    else
+        ps -ef | grep -E "PID|$PPID" | head -5 >> "$LOG_FILE" 2>/dev/null || persistent_log "ps failed"
+    fi
+    persistent_log "Environment variables:"
+    env | grep -E "(WORKTREE|GIT)" >> "$LOG_FILE" 2>/dev/null || persistent_log "env failed"
+    persistent_log "=== END CALL STACK ==="
 }
 
 # Function to check if we're in a worktree using git_utils.py
@@ -89,14 +121,15 @@ transform_gitdir_path() {
     echo "$gitdir_line"
 }
 
-# Function to handle worktree git command
+# Simplified worktree git handler - no backup files needed
 handle_worktree_git() {
-    local git_file=".git"
-    local backup_file=".git.wrapper.$$"
-    local temp_file=".git.temp.$$"
     local exit_code=0
+    local git_file=".git"
     
+    debug_log "=== SIMPLIFIED WORKTREE GIT HANDLING START ==="
     debug_log "Handling worktree git command: $*"
+    debug_log "Process ID: $$"
+    debug_log "Working directory: $(pwd)"
     
     # Check if .git file exists
     if [ ! -f "$git_file" ]; then
@@ -105,42 +138,46 @@ handle_worktree_git() {
         return $?
     fi
     
-    # Create backup of original .git file
-    if ! cp "$git_file" "$backup_file" 2>/dev/null; then
-        debug_log "Failed to backup .git file, running git normally"
-        "$REAL_GIT" "$@"
-        return $?
-    fi
+    # Store original content for logging
+    local original_content=$(cat "$git_file" 2>/dev/null)
+    debug_log "Original .git content: $original_content"
     
-    # Create temporary .git file with container paths
-    if grep -q "gitdir:" "$git_file" 2>/dev/null; then
+    # Transform .git file to container paths if it contains gitdir
+    if echo "$original_content" | grep -q "gitdir:" 2>/dev/null; then
         debug_log "Transforming gitdir paths for container"
-        transform_gitdir_path "$(cat "$git_file")" > "$temp_file"
+        local transformed_content=$(transform_gitdir_path "$original_content")
+        debug_log "Transformed content: $transformed_content"
         
-        if [ -s "$temp_file" ]; then
-            mv "$temp_file" "$git_file"
-            debug_log "Git file updated for container paths"
-        else
-            debug_log "Failed to transform paths, using original"
-            mv "$backup_file" "$git_file"
-            rm -f "$temp_file"
-            "$REAL_GIT" "$@"
-            return $?
-        fi
+        # Write transformed content directly to .git file
+        echo "$transformed_content" > "$git_file"
+        debug_log "✅ Updated .git file with container paths"
     else
         debug_log ".git file doesn't contain gitdir, running normally"
-        rm -f "$backup_file"
         "$REAL_GIT" "$@"
         return $?
     fi
     
-    # Setup cleanup trap
+    debug_log "=== WORKTREE GIT HANDLING SETUP COMPLETE ==="
+    
+    # Simple cleanup function - only restore host paths
     cleanup() {
-        debug_log "Cleaning up: restoring original .git file"
-        if [ -f "$backup_file" ]; then
-            mv "$backup_file" "$git_file" 2>/dev/null || true
+        debug_log "=== CLEANUP: Restoring host paths ==="
+        
+        # Always restore host paths after git command
+        if restore_original_host_path; then
+            debug_log "✅ Successfully restored host paths"
+        else
+            debug_log "❌ Failed to restore host paths"
         fi
-        rm -f "$temp_file" 2>/dev/null || true
+        
+        # Log final state
+        if [ -f "$git_file" ]; then
+            local final_content=$(cat "$git_file" 2>/dev/null || echo "unreadable")
+            debug_log "Final .git content: $final_content"
+            persistent_log "FINAL_STATE: $final_content"
+        fi
+        
+        debug_log "🏁 === GIT WRAPPER EXECUTION END ==="
     }
     trap cleanup EXIT INT TERM
     
@@ -148,18 +185,75 @@ handle_worktree_git() {
     debug_log "Executing: $REAL_GIT $*"
     "$REAL_GIT" "$@"
     exit_code=$?
+    debug_log "Git command exit code: $exit_code"
     
-    # Cleanup (restore original .git file)
-    cleanup
-    trap - EXIT INT TERM
-    
+    # Note: cleanup will be called automatically by trap
     debug_log "Git command completed with exit code: $exit_code"
     return $exit_code
 }
 
+# Function to get or compute the original host path for .git file
+get_original_host_path() {
+    # If we have a saved host path, use it
+    if [ -n "$SAVED_HOST_GIT_PATH" ]; then
+        debug_log "Using saved host path: $SAVED_HOST_GIT_PATH"
+        echo "$SAVED_HOST_GIT_PATH"
+        return 0
+    fi
+    
+    # Try to compute host path from current .git content
+    if [ -f .git ]; then
+        local current_content=$(cat .git 2>/dev/null)
+        debug_log "Current .git content: $current_content"
+        
+        # If it contains container path, transform back to host path
+        if echo "$current_content" | grep -q "/main-repo/"; then
+            local host_path=$(echo "$current_content" | sed "s|/main-repo|${WORKTREE_HOST_MAIN_REPO:-/Users/visheshd/Work/7tea1}|g")
+            debug_log "Computed host path from container path: $host_path"
+            echo "$host_path"
+            return 0
+        else
+            # Already has host path
+            debug_log "Already has host path: $current_content"
+            echo "$current_content"
+            return 0
+        fi
+    fi
+    
+    debug_log "⚠️ Could not determine original host path"
+    return 1
+}
+
+# Function to restore original host path (replaces backup-based restore)
+restore_original_host_path() {
+    local original_path=$(get_original_host_path)
+    
+    if [ -n "$original_path" ]; then
+        debug_log "Restoring original host path: $original_path"
+        echo "$original_path" > ".git"
+        debug_log "✅ Restored original host path to .git file"
+        return 0
+    else
+        debug_log "❌ Could not restore original host path"
+        return 1
+    fi
+}
+
 # Main wrapper logic
 main() {
+    # Always log every execution with call stack
+    debug_log "🚀 === GIT WRAPPER EXECUTION START ==="
+    log_call_stack "$@"
+    
     debug_log "Git wrapper called with: $*"
+    
+    # Log initial .git file state
+    if [ -f .git ]; then
+        local initial_git_content=$(cat .git 2>/dev/null)
+        debug_log "Initial .git file content: $initial_git_content"
+    else
+        debug_log "No .git file found initially"
+    fi
     
     # Check if worktree environment variables are set
     if [ "${WORKTREE_DETECTED:-false}" = "true" ]; then
@@ -177,6 +271,7 @@ main() {
     
     # Not in a worktree, run git normally
     debug_log "Not in worktree, running git normally"
+    debug_log "🏁 === GIT WRAPPER EXECUTION END (NORMAL) ==="
     "$REAL_GIT" "$@"
     return $?
 }
