@@ -1,13 +1,15 @@
 # Claude DevContainer Ecosystem
 
-A comprehensive DevContainer-based development environment for Claude Code, replacing the monolithic claude-docker approach with optimized, stack-specific containers and native IDE integration.
+⚠️ **BREAKING CHANGE**: The legacy `claude-docker` setup has been completely replaced and **no longer works**. You must migrate to the DevContainer approach below.
+
+A comprehensive DevContainer-based development environment for Claude Code, featuring optimized, stack-specific containers with native IDE integration and automated git worktree support.
 
 [![Build Images](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml/badge.svg)](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml)
 
-📋 **Migration Guide**: See [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) for migrating from claude-docker  
+🚨 **Migration Required**: See [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) - old setup no longer functions  
 📋 **MCP Setup Guide**: See [MCP_SERVERS.md](MCP_SERVERS.md) for customizing or adding more MCP servers
 
-## 🎯 Benefits Over claude-docker
+## 🎯 Benefits Over Legacy Setup
 
 ✅ **Eliminated Complexity**: Removes ~300 lines of git worktree detection code  
 ✅ **Native IDE Integration**: Seamless VS Code, Cursor, and compatible editor support  
@@ -16,6 +18,8 @@ A comprehensive DevContainer-based development environment for Claude Code, repl
 ✅ **Preserved Functionality**: All MCP servers and SSH host builds maintained  
 ✅ **Faster Startup**: Optimized containers reduce startup time by 50%  
 ✅ **Better DX**: Native DevContainer features instead of external scripts  
+✅ **Automated Worktrees**: Git wrapper system handles worktree operations seamlessly  
+✅ **Cross-Platform**: Resolved architecture issues (Apple Silicon/Rosetta compatibility)  
 
 ## 🚀 Quick Start
 
@@ -35,6 +39,9 @@ code .
 ```
 
 ### For Existing claude-docker Users
+
+⚠️ **IMPORTANT**: The old claude-docker setup no longer works and must be migrated.
+
 ```bash
 # Install the CLI tool locally (one-time setup)
 cd tools/claude-devcontainer
@@ -51,9 +58,6 @@ claude-devcontainer init
 # Your existing .env and .claude/ configs are preserved
 ```
 
-### Legacy claude-docker (Deprecated)
-The original claude-docker script is still available but deprecated. For new projects, use the DevContainer approach above.
-
 ## 🏗️ New Architecture
 
 ### Layer 1: Base Image
@@ -63,11 +67,12 @@ The original claude-docker script is still available but deprecated. For new pro
 ### Layer 2: Stack Images  
 - **claude-python-ml**: Python 3.11+, uv, ML libraries, Jupyter, LangChain
 - **claude-rust-tauri**: Rust toolchain, Tauri v2, cross-compilation support
-- **claude-nextjs**: Node.js optimized, Bun/pnpm, modern web development tools
+- **claude-nextjs**: Node.js optimized, pnpm (not npm), modern web development tools
 
 ### Layer 3: DevContainer Features
 - **claude-mcp**: Configurable MCP server installation and management
 - **host-ssh-build**: SSH-based builds on host system (macOS native builds)
+- **git-wrapper**: Automated git worktree operations with atomic transaction support
 
 ## 📋 Available Stacks
 
@@ -75,7 +80,7 @@ The original claude-docker script is still available but deprecated. For new pro
 |-------|------------|----------|--------------|
 | **Python ML** | `claude-python-ml:latest` | AI/ML Development | Python 3.11, Jupyter, LangChain, PyTorch, Vector DBs |
 | **Rust Tauri** | `claude-rust-tauri:latest` | Desktop Apps | Rust toolchain, Tauri v2, Cross-compilation, GUI libs |
-| **Next.js** | `claude-nextjs:latest` | Web Development | Node.js, Bun, TypeScript, Tailwind, Modern web tools |
+| **Next.js** | `claude-nextjs:latest` | Web Development | Node.js, pnpm, TypeScript, Tailwind, Modern web tools |
 | **Custom** | `claude-base:latest` | General Purpose | Base environment for custom configurations |
 
 ## 🔨 Building Images Locally
@@ -118,6 +123,26 @@ cd ../nextjs && ./build.sh --base-image claude-base:latest
 # See all available options
 ./build-all-images.sh --help
 ```
+
+## 🚀 Recent Improvements
+
+### Git Worktree Automation
+New git wrapper system provides:
+- **Atomic Operations**: All git worktree operations are transaction-safe
+- **Automatic Setup**: DevContainers automatically configure worktree mounts
+- **Cross-Platform**: Resolved architecture issues on Apple Silicon
+- **Simplified Management**: No manual worktree detection or configuration needed
+
+### Architecture & Performance
+- **Rosetta Compatibility**: Fixed architecture detection issues on Apple Silicon Macs
+- **Simplified Build Process**: Removed complex backup and recovery systems
+- **Package Manager Updates**: Next.js projects now use pnpm instead of npm
+- **Portable Setup**: DevContainer configurations work across different host systems
+
+### Publishing & Distribution
+- **GitHub Container Registry**: DevContainer features published to `ghcr.io`
+- **Automated Workflows**: CI/CD pipeline ensures features stay up-to-date
+- **Version Management**: Semantic versioning for reliable feature updates
 
 ## 🧪 Testing Your Setup
 
@@ -169,7 +194,7 @@ code test-project/
 
 - **📋 [Migration Guide](docs/MIGRATION_GUIDE.md)** - Step-by-step migration from claude-docker
 - **🔌 [MCP Setup Guide](MCP_SERVERS.md)** - Configure MCP servers for your workflow
-- **🏗️ [DevContainer Features](devcontainer-features/)** - Advanced feature configuration
+- **🏗️ [DevContainer Features](src/)** - Advanced feature configuration
 - **📝 [CLI Tool Guide](tools/claude-devcontainer/)** - Migration CLI documentation
 
 ## 🤝 Contributing
@@ -190,7 +215,7 @@ npm install && npm link
 
 ### Making Changes
 1. **Docker Images**: Modify `dockerfiles/*/Dockerfile` and test with `./build.sh`
-2. **DevContainer Features**: Edit `devcontainer-features/*/install.sh` and test
+2. **DevContainer Features**: Edit `src/*/install.sh` and test
 3. **CLI Tool**: Modify `tools/claude-devcontainer/src/index.js` (ES modules)
 4. **Documentation**: Update relevant `.md` files
 
@@ -214,18 +239,27 @@ code . && # "Dev Containers: Reopen in Container"
 - Update documentation for any new features
 - Follow existing code patterns and conventions
 
-## 🔧 Legacy claude-docker (Deprecated)
+## ⚠️ Legacy claude-docker (BREAKING CHANGE)
 
-⚠️ **The monolithic claude-docker approach is deprecated.** Please migrate to the DevContainer ecosystem above.
+🚨 **The monolithic claude-docker setup has been completely removed and NO LONGER WORKS.**
 
-**For existing users:**
-- The original `./src/claude-docker.sh` script still works but is no longer maintained
-- See [Migration Guide](docs/MIGRATION_GUIDE.md) for step-by-step migration instructions  
-- Legacy documentation is available in git history if needed
+**Critical Information:**
+- ❌ The original `claude-docker.sh` script has been **removed** from the repository
+- ❌ Running old commands will result in "file not found" errors
+- ❌ There is **no backwards compatibility** - you must migrate to DevContainers
+- ⚠️ See [Migration Guide](docs/MIGRATION_GUIDE.md) for **mandatory migration** instructions
 
-**Why migrate?**
+**This is a breaking change because:**
+- 🐛 **Architectural Issues**: The old approach had fundamental problems with git worktree detection
+- 📈 **Performance Problems**: Monolithic container was slow and resource-intensive  
+- 🔧 **Maintenance Burden**: 300+ lines of complex worktree code were unmaintainable
+- 🎯 **Better Solution Available**: DevContainers provide superior developer experience
+
+**Migration Benefits:**
 - ✅ **50% faster startup** with optimized containers
 - ✅ **Native IDE integration** instead of external terminal
 - ✅ **Complete project isolation** prevents conflicts
-- ✅ **Eliminated complexity** (~300 lines of worktree detection removed)
+- ✅ **Automated worktree support** replaces complex detection logic
 - ✅ **Stack-specific optimizations** for better performance
+
+**🚨 ACTION REQUIRED: You must migrate to continue using this project.**

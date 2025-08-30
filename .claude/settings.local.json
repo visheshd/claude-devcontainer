@@ -26,7 +26,8 @@
       "Read(/Users/visheshd/Work/7tea1-devcontainer/.devcontainer/**)",
       "Read(/Users/visheshd/Library/Containers/at.EternalStorms.Yoink/Data/Documents/YoinkPromisedFiles.noIndex/yoinkFilePromiseCreationFolder5EFE9EEE-8860-4CBF-B1CD-1BC134509062/add5EFE9EEE-8860-4CBF-B1CD-1BC134509062/**)",
       "mcp__serena__find_file",
-      "Bash(docker system:*)"
+      "Bash(docker system:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

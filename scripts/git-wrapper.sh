@@ -35,17 +35,11 @@ debug_log() {
     persistent_log "$message"
 }
 
-# Function to log call stack trace
+# Function to log call stack trace (simplified - no process tree)
 log_call_stack() {
     persistent_log "=== CALL STACK TRACE ==="
     persistent_log "Git command: $*"
     persistent_log "Parent PID: $PPID"
-    persistent_log "Process tree:"
-    if command -v pstree >/dev/null 2>&1; then
-        pstree -p $PPID 2>/dev/null | head -10 >> "$LOG_FILE" || persistent_log "pstree failed"
-    else
-        ps -ef | grep -E "PID|$PPID" | head -5 >> "$LOG_FILE" 2>/dev/null || persistent_log "ps failed"
-    fi
     persistent_log "Environment variables:"
     env | grep -E "(WORKTREE|GIT)" >> "$LOG_FILE" 2>/dev/null || persistent_log "env failed"
     persistent_log "=== END CALL STACK ==="
