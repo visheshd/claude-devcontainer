@@ -600,6 +600,8 @@ class DevContainerGenerator {
       mcpFeatures: [],
       outdatedImage: null,
       issues: [],
+      isWorktree: false,
+      hardcodedWorktreePaths: [],
       customizations: {
         mounts: [],
         extensions: [],
@@ -664,7 +666,62 @@ class DevContainerGenerator {
       analysis.issues.push('No MCP servers configured - consider adding serena and context7');
     }
 
+    // Check for worktree-specific configurations that need to be made dynamic
+    this.detectWorktreeConfiguration(existingConfig, analysis);
+
     return analysis;
+  }
+
+  detectWorktreeConfiguration(existingConfig, analysis) {
+    const worktreeIndicators = [
+      'WORKTREE_DETECTED',
+      'WORKTREE_HOST_MAIN_REPO', 
+      'WORKTREE_CONTAINER_MAIN_REPO',
+      'WORKTREE_NAME'
+    ];
+
+    // Check for worktree environment variables
+    if (existingConfig.containerEnv) {
+      const hasWorktreeEnv = worktreeIndicators.some(indicator => 
+        existingConfig.containerEnv[indicator] !== undefined
+      );
+      
+      if (hasWorktreeEnv) {
+        analysis.isWorktree = true;
+        
+        // Detect hardcoded paths in environment variables
+        Object.entries(existingConfig.containerEnv).forEach(([key, value]) => {
+          if (typeof value === 'string' && (
+              value.includes('/Users/') || 
+              value.includes('/home/') ||
+              value.match(/^\/[a-zA-Z]/) // Absolute paths
+            )) {
+            analysis.hardcodedWorktreePaths.push(`containerEnv.${key}: ${value}`);
+          }
+        });
+      }
+    }
+
+    // Check for hardcoded paths in mounts
+    if (existingConfig.mounts) {
+      existingConfig.mounts.forEach((mount, index) => {
+        if (mount.includes('/Users/') || mount.includes('/home/')) {
+          analysis.hardcodedWorktreePaths.push(`mounts[${index}]: ${mount}`);
+        }
+      });
+    }
+
+    // Check for hardcoded workspace folder
+    if (existingConfig.workspaceFolder && 
+        (existingConfig.workspaceFolder.includes('/Users/') || 
+         existingConfig.workspaceFolder.includes('/home/'))) {
+      analysis.hardcodedWorktreePaths.push(`workspaceFolder: ${existingConfig.workspaceFolder}`);
+    }
+
+    // Add issues for hardcoded paths
+    if (analysis.hardcodedWorktreePaths.length > 0) {
+      analysis.issues.push('Hardcoded paths detected - configuration needs to be made dynamic for portability');
+    }
   }
 
   async generateMigrationConfig(existingConfig, analysis, options = {}) {
@@ -734,7 +791,51 @@ class DevContainerGenerator {
     // Remove duplicates while preserving order
     updatedConfig.customizations.vscode.extensions = [...new Set(extensions)];
 
+    // Fix worktree configurations to be dynamic
+    if (analysis.isWorktree && analysis.hardcodedWorktreePaths.length > 0) {
+      this.makeWorktreeConfigDynamic(updatedConfig);
+    }
+
     return updatedConfig;
+  }
+
+  makeWorktreeConfigDynamic(config) {
+    // Make workspace folder dynamic
+    if (config.workspaceFolder && config.workspaceFolder.includes('/workspaces/')) {
+      config.workspaceFolder = '/workspaces/${localWorkspaceFolderBasename}';
+    }
+
+    // Make environment variables dynamic
+    if (config.containerEnv) {
+      // Make WORKTREE_NAME dynamic
+      if (config.containerEnv.WORKTREE_NAME) {
+        config.containerEnv.WORKTREE_NAME = '${localWorkspaceFolderBasename}';
+      }
+
+      // Make main repo paths relative and dynamic
+      if (config.containerEnv.WORKTREE_HOST_MAIN_REPO) {
+        // Extract the parent directory path and make it relative
+        config.containerEnv.WORKTREE_HOST_MAIN_REPO = '${localWorkspaceFolder}/..';
+      }
+
+      // Keep container main repo consistent
+      if (config.containerEnv.WORKTREE_CONTAINER_MAIN_REPO) {
+        config.containerEnv.WORKTREE_CONTAINER_MAIN_REPO = '/main-repo';
+      }
+    }
+
+    // Make mounts dynamic
+    if (config.mounts) {
+      config.mounts = config.mounts.map(mount => {
+        // Handle main repo mount
+        if (mount.includes('target=/main-repo') && mount.includes('source=')) {
+          return 'source=${localWorkspaceFolder}/..,target=/main-repo,type=bind,consistency=cached';
+        }
+        
+        // Keep other mounts as-is (like .claude mount)
+        return mount;
+      });
+    }
   }
 }
 
