@@ -7,7 +7,7 @@ FROM ${BASE_IMAGE}
 # Switch to root for system package installation
 USER root
 
-# Install Rust and Tauri system dependencies
+# Install Rust and Tauri system dependencies (optimized)
 RUN apt-get update && apt-get install -y \
     # Core build tools
     pkg-config \
@@ -27,13 +27,8 @@ RUN apt-get update && apt-get install -y \
     librsvg2-dev \
     # Audio support
     libasound2-dev \
-    # Development tools
-    lldb \
-    gdb \
-    strace \
-    # Cross-compilation support
-    gcc-mingw-w64 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Switch back to claude-user
 USER claude-user
@@ -51,31 +46,21 @@ RUN rustup component add \
     rust-src \
     rust-analyzer
 
-# Install additional Rust targets for cross-compilation
-RUN rustup target add \
-    wasm32-unknown-unknown \
-    x86_64-pc-windows-gnu \
-    aarch64-apple-darwin \
-    x86_64-apple-darwin
+# Install essential WASM target (others can be added on-demand)
+RUN rustup target add wasm32-unknown-unknown
 
 # Install Tauri CLI v2
 RUN cargo install tauri-cli@^2.0 --locked
 
-# Install additional Rust development tools
+# Install essential Rust development tools (optimized list)
 RUN cargo install \
     cargo-watch \
-    cargo-expand \
-    cargo-outdated \
-    cargo-audit \
-    cargo-update \
     cargo-edit \
-    cargo-generate \
     wasm-pack \
     --locked
 
 # Install Bun for modern JavaScript tooling (used by Tauri frontends)
-RUN curl -fsSL https://bun.sh/install | bash && \
-    echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.zshrc
+RUN curl -fsSL https://bun.sh/install | bash
 
 ENV PATH="/home/claude-user/.bun/bin:${PATH}"
 
@@ -87,37 +72,8 @@ RUN mkdir -p \
     /workspace/assets \
     /workspace/docs
 
-# Create a sample Tauri project configuration
-RUN echo '# Tauri Rust Development Environment\n\
-\n\
-## Quick Start\n\
-\n\
-Create a new Tauri project:\n\
-```bash\n\
-cargo tauri init\n\
-```\n\
-\n\
-Or use a template:\n\
-```bash\n\
-cargo generate --git https://github.com/tauri-apps/tauri.git --name my-app\n\
-```\n\
-\n\
-## Development Commands\n\
-\n\
-- `cargo tauri dev` - Start development server\n\
-- `cargo tauri build` - Build production app\n\
-- `cargo test` - Run Rust tests\n\
-- `bun run dev` - Start frontend development (if using Bun)\n\
-\n\
-## Tools Available\n\
-\n\
-- Rust stable toolchain with clippy, rustfmt\n\
-- Tauri CLI v2\n\
-- Bun for modern JavaScript tooling\n\
-- Cross-compilation targets for Windows and macOS\n\
-' > /workspace/README.md
 
-# Create startup script for Rust Tauri environment
+# Create startup script for Rust Tauri environment (optimized)
 RUN echo '#!/bin/bash\n\
 echo "🦀 Rust Tauri Environment Ready"\n\
 echo "Rust: $(rustc --version)"\n\
@@ -125,9 +81,10 @@ echo "Tauri CLI: $(cargo tauri --version)"\n\
 echo "Bun: $(bun --version)"\n\
 echo ""\n\
 echo "💡 Quick start:"\n\
-echo "  cargo tauri init     # Initialize Tauri project"\n\
-echo "  cargo tauri dev      # Start development"\n\
-echo "  cargo tauri build    # Build production app"\n\
+echo "  cargo tauri init                     # Initialize project"\n\
+echo "  cargo tauri dev                      # Start development"\n\
+echo "  rustup target add <target>          # Add cross-compilation targets"\n\
+echo "  cargo install cargo-<tool> --locked # Install additional tools"\n\
 echo ""\n\
 exec startup.sh' > ~/.local/bin/tauri-start && \
     chmod +x ~/.local/bin/tauri-start

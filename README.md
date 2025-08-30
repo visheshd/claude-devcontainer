@@ -126,6 +126,69 @@ cd ../nextjs && ./build.sh --base-image claude-base:latest
 ./build-all-images.sh --help
 ```
 
+## 🎨 Custom Images and Extensibility
+
+The Claude DevContainer system is designed for extensibility. You can create custom images for specialized environments while maintaining full compatibility with the Claude toolchain.
+
+### Image Architecture
+
+```
+claude-base:latest              # Foundation with Claude Code, git, build tools
+├── claude-python-ml:latest     # + Python 3.11, ML libraries, Jupyter  
+├── claude-rust-tauri:latest    # + Rust toolchain, Tauri v2, GUI deps
+├── claude-nextjs:latest        # + Node.js, Bun, TypeScript tools
+└── your-custom:latest          # + Your specialized tools
+```
+
+### Creating Custom Images
+
+**Basic extension example:**
+```dockerfile
+FROM claude-base:latest
+
+USER root
+RUN apt-get update && apt-get install -y postgresql-client redis-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+USER claude-user
+RUN curl -fsSL https://get.pnpm.io/install.sh | sh
+
+WORKDIR /workspace
+```
+
+**Using your custom image:**
+```bash
+# Build your custom image
+docker build -t my-custom-claude:latest .
+
+# Initialize DevContainer with custom stack
+claude-devcontainer init -s custom
+
+# Edit .devcontainer/devcontainer.json to use your image
+{
+  "image": "my-custom-claude:latest",
+  // ... other configuration
+}
+```
+
+### Documentation and Examples
+
+- **[Custom Images Guide](docs/custom-images/README.md)** - Complete guide to creating custom images
+- **[Example Dockerfiles](docs/custom-images/)** - Ready-to-use examples for common scenarios:
+  - Basic extension with common tools
+  - Database development environment
+  - Multi-language development setup
+  - DevOps and infrastructure tools
+  - Scientific computing environments
+
+### Best Practices
+
+1. **Always extend `claude-base:latest`** for compatibility
+2. **Follow the USER pattern** (root for system, claude-user for user tools)
+3. **Clean up package caches** to keep images lean
+4. **Use environment variables** for configuration
+5. **Document your customizations** in README files
+
 ## 🚀 Recent Improvements
 
 ### Git Worktree Automation
@@ -138,7 +201,7 @@ New git wrapper system provides:
 ### Architecture & Performance
 - **Rosetta Compatibility**: Fixed architecture detection issues on Apple Silicon Macs
 - **Simplified Build Process**: Removed complex backup and recovery systems
-- **Package Manager Updates**: Next.js projects now use pnpm instead of npm
+- **Optimized Images**: Reduced size by 50-70% through package cleanup and smart layering
 - **Portable Setup**: DevContainer configurations work across different host systems
 
 ### Publishing & Distribution

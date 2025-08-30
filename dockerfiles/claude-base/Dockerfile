@@ -4,7 +4,7 @@
 
 FROM node:20-slim
 
-# Install essential system dependencies (removed zsh)
+# Install essential system dependencies (optimized)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -13,13 +13,11 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     sudo \
     openssh-client \
-    sshpass \
     ca-certificates \
     gnupg \
     lsb-release \
-    procps \
-    psmisc \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Create a non-root user with matching host UID/GID (using bash)
 ARG USER_UID=1000

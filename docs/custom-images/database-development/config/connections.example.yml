@@ -1,0 +1,66 @@
+# Database Connection Configuration
+# Copy this to connections.yml and fill in your actual connection details
+
+environments:
+  # Local development databases
+  local-postgres:
+    type: postgres
+    url: postgresql://postgres:password@localhost:5432/myapp_dev
+    description: Local PostgreSQL development database
+  
+  local-mysql:
+    type: mysql
+    url: mysql://root:password@localhost:3306/myapp_dev
+    description: Local MySQL development database
+  
+  local-sqlite:
+    type: sqlite
+    url: sqlite:///workspace/dev.db
+    description: Local SQLite database file
+  
+  local-redis:
+    type: redis
+    url: redis://localhost:6379
+    description: Local Redis cache
+  
+  # Docker Compose databases
+  compose-postgres:
+    type: postgres
+    url: postgresql://postgres:password@db:5432/myapp
+    description: PostgreSQL in Docker Compose
+  
+  compose-mysql:
+    type: mysql
+    url: mysql://root:password@mysql:3306/myapp
+    description: MySQL in Docker Compose
+  
+  # Testing databases (usually in-memory or temporary)
+  test-postgres:
+    type: postgres
+    url: postgresql://postgres:password@localhost:5433/myapp_test
+    description: PostgreSQL test database
+  
+  test-sqlite:
+    type: sqlite
+    url: sqlite:///:memory:
+    description: In-memory SQLite for testing
+  
+  # Cloud databases (examples - use environment variables for secrets)
+  # staging-postgres:
+  #   type: postgres
+  #   url: postgresql://${STAGING_DB_USER}:${STAGING_DB_PASS}@staging-db.company.com:5432/myapp
+  #   description: Staging PostgreSQL on AWS RDS
+  # 
+  # production-postgres:
+  #   type: postgres  
+  #   url: postgresql://${PROD_DB_USER}:${PROD_DB_PASS}@prod-db.company.com:5432/myapp
+  #   description: Production PostgreSQL (read-only replica recommended)
+
+# Usage examples:
+# db-connect local-postgres
+# db-connect compose-mysql
+# db-connect test-sqlite
+
+# You can also use direct URLs:
+# db-connect postgresql://user:pass@host:5432/db
+# db-connect mysql://user:pass@host:3306/db

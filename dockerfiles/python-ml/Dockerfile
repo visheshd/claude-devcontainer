@@ -7,7 +7,7 @@ FROM ${BASE_IMAGE}
 # Switch to root for system package installation
 USER root
 
-# Install Python ML system dependencies
+# Install Python ML system dependencies (optimized - removed TeX Live)
 RUN apt-get update && apt-get install -y \
     python3.11 \
     python3.11-dev \
@@ -27,12 +27,8 @@ RUN apt-get update && apt-get install -y \
     # Scientific computing
     libffi-dev \
     libssl-dev \
-    # Jupyter dependencies
-    pandoc \
-    texlive-xetex \
-    texlive-fonts-recommended \
-    texlive-plain-generic \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Switch back to claude-user
 USER claude-user
@@ -44,14 +40,12 @@ RUN sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3
 RUN ~/.local/bin/uv python install 3.11 && \
     ~/.local/bin/uv python pin 3.11
 
-# Install common Python ML packages with uv
-RUN ~/.local/bin/uv tool install jupyterlab && \
-    ~/.local/bin/uv tool install ipython
+# Note: Removed duplicate tool installs - will install in venv instead
 
 # Create a virtual environment for ML development
 RUN ~/.local/bin/uv venv ~/.venvs/ml --python 3.11
 
-# Install core ML packages in the virtual environment
+# Install core ML packages (without PyTorch first)
 RUN ~/.local/bin/uv pip install \
     --python ~/.venvs/ml/bin/python \
     numpy \
@@ -61,8 +55,9 @@ RUN ~/.local/bin/uv pip install \
     seaborn \
     plotly \
     jupyterlab \
+    ipython \
     ipywidgets \
-    # LangChain ecosystem
+    # LangChain ecosystem  
     langchain \
     langchain-community \
     langchain-experimental \
@@ -103,13 +98,16 @@ RUN mkdir -p /workspace/notebooks /workspace/data /workspace/models /workspace/s
 # Set PYTHONPATH to include workspace
 ENV PYTHONPATH="/workspace:${PYTHONPATH}"
 
-# Create startup script for Python ML environment
+# Create startup script for Python ML environment (optimized)
 RUN echo '#!/bin/bash\n\
 echo "🐍 Python ML Environment Ready"\n\
 echo "Python: $(python3 --version)"\n\
-echo "Packages: $(pip list | wc -l) installed"\n\
-echo "Jupyter Lab: http://localhost:8888"\n\
-echo "Notebooks: /workspace/notebooks"\n\
+echo "Virtual env: ~/.venvs/ml"\n\
+echo "Jupyter Lab: jupyter lab --ip=0.0.0.0 --port=8888"\n\
+echo ""\n\
+echo "💡 Quick start:"\n\
+echo "  jupyter lab                          # Start Jupyter"\n\
+echo "  python -c \"import torch; print(torch.__version__)\" # Test PyTorch"\n\
 echo ""\n\
 exec startup.sh' > ~/.local/bin/ml-start && \
     chmod +x ~/.local/bin/ml-start
