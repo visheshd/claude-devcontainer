@@ -1,0 +1,20 @@
+{
+  "name": "Project without Claude Mount",
+  "image": "claude-base:latest",
+  "mounts": [
+    "source=${localEnv:HOME}/custom-data,target=/workspace/data,type=bind"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "ms-python.python"
+      ]
+    }
+  },
+  "features": {
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
+      "servers": "serena"
+    }
+  }
+}

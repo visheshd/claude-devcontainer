@@ -324,8 +324,8 @@ class DevContainerGenerator {
     }
   }
 
-  async migrate() {
-    console.log(chalk.blue.bold('🚀 Claude DevContainer Migration Tool\n'));
+  async init() {
+    console.log(chalk.blue.bold('🚀 Claude DevContainer Initialization\n'));
 
     try {
       // Detect current setup
@@ -384,6 +384,247 @@ class DevContainerGenerator {
       process.exit(1);
     }
   }
+
+  async migrate(options = {}) {
+    console.log(chalk.blue.bold('🔄 Claude DevContainer Migration Tool\n'));
+
+    try {
+      // Check for existing devcontainer.json
+      const devcontainerPath = '.devcontainer/devcontainer.json';
+      const hasExistingConfig = fs.existsSync(devcontainerPath);
+
+      if (!hasExistingConfig) {
+        console.log(chalk.yellow('⚠️  No existing DevContainer configuration found.'));
+        console.log(chalk.white('Consider using "claude-devcontainer init" to create a new configuration.\n'));
+        return;
+      }
+
+      // Load and analyze existing configuration
+      const spinner = ora('Analyzing existing configuration...').start();
+      let existingConfig;
+      try {
+        existingConfig = await fs.readJson(devcontainerPath);
+        spinner.succeed('Existing configuration loaded');
+      } catch (error) {
+        spinner.fail('Failed to parse existing configuration');
+        console.error(chalk.red('Error parsing devcontainer.json:'), error.message);
+        return;
+      }
+
+      // Analyze what needs updating
+      const analysis = await this.analyzeConfig(existingConfig);
+      
+      if (analysis.issues.length === 0) {
+        console.log(chalk.green('✅ Your DevContainer configuration is already up to date!\n'));
+        return;
+      }
+
+      // Show analysis results
+      console.log(chalk.blue('\n📋 Configuration Analysis:'));
+      console.log(chalk.white(`  Current image: ${chalk.cyan(existingConfig.image || 'not specified')}`));
+      
+      if (analysis.hasClaudeMount) {
+        console.log(chalk.green('  ✅ .claude directory mounting: configured'));
+      } else {
+        console.log(chalk.red('  ❌ .claude directory mounting: missing'));
+      }
+
+      if (analysis.mcpFeatures.length > 0) {
+        console.log(chalk.green(`  ✅ MCP servers: ${analysis.mcpFeatures.join(', ')}`));
+      } else {
+        console.log(chalk.yellow('  ⚠️  MCP servers: none configured'));
+      }
+
+      console.log(chalk.blue('\n🔧 Issues to fix:'));
+      analysis.issues.forEach(issue => {
+        console.log(chalk.red(`  • ${issue}`));
+      });
+
+      if (options.dryRun) {
+        console.log(chalk.blue('\n📋 Proposed changes (dry run):'));
+        const updatedConfig = await this.generateMigrationConfig(existingConfig, analysis);
+        console.log(chalk.gray(JSON.stringify(updatedConfig, null, 2)));
+        return;
+      }
+
+      // Prompt for migration
+      const { shouldMigrate } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'shouldMigrate',
+          message: 'Would you like to migrate your configuration?',
+          default: true
+        }
+      ]);
+
+      if (!shouldMigrate) {
+        console.log(chalk.yellow('Migration cancelled.\n'));
+        return;
+      }
+
+      // Create backup
+      const backupPath = `${devcontainerPath}.backup.${Date.now()}`;
+      await fs.copy(devcontainerPath, backupPath);
+      console.log(chalk.green(`✅ Backup created: ${backupPath}`));
+
+      // Generate and apply updated configuration
+      const updatedConfig = await this.generateMigrationConfig(existingConfig, analysis);
+      await fs.writeJson(devcontainerPath, updatedConfig, { spaces: 2 });
+
+      console.log(chalk.green.bold('\n🎉 Migration completed successfully!\n'));
+      console.log(chalk.blue('Changes applied:'));
+      analysis.issues.forEach(issue => {
+        console.log(chalk.green(`  ✅ Fixed: ${issue}`));
+      });
+
+      console.log(chalk.blue('\nNext steps:'));
+      console.log(chalk.white('  1. Rebuild your DevContainer to apply changes'));
+      console.log(chalk.white('  2. Use "Dev Containers: Rebuild Container" in VS Code'));
+      console.log(chalk.white(`  3. Backup saved to: ${path.basename(backupPath)}\n`));
+
+    } catch (error) {
+      console.error(chalk.red.bold('\n❌ Migration Error:'), error.message);
+      process.exit(1);
+    }
+  }
+
+  async analyzeConfig(existingConfig) {
+    const analysis = {
+      hasClaudeMount: false,
+      mcpFeatures: [],
+      outdatedImage: null,
+      issues: [],
+      customizations: {
+        mounts: [],
+        extensions: [],
+        ports: [],
+        environment: {}
+      }
+    };
+
+    // Check for .claude mount
+    if (existingConfig.mounts) {
+      analysis.hasClaudeMount = existingConfig.mounts.some(mount => 
+        mount.includes('.claude') && mount.includes('/home/claude-user/.claude')
+      );
+      
+      // Preserve custom mounts (non-.claude mounts)
+      analysis.customizations.mounts = existingConfig.mounts.filter(mount => 
+        !mount.includes('.claude')
+      );
+    }
+
+    if (!analysis.hasClaudeMount) {
+      analysis.issues.push('Missing .claude directory mount for user customizations');
+    }
+
+    // Check for MCP features
+    if (existingConfig.features) {
+      const mcpFeature = existingConfig.features['ghcr.io/visheshd/claude-devcontainer/claude-mcp:1'];
+      if (mcpFeature && mcpFeature.servers) {
+        analysis.mcpFeatures = mcpFeature.servers.split(',').map(s => s.trim());
+      }
+    }
+
+    // Check for outdated images
+    const imageMapping = {
+      'claude-docker:latest': 'claude-base:latest',
+      'claude-docker': 'claude-base:latest'
+    };
+
+    if (existingConfig.image && imageMapping[existingConfig.image]) {
+      analysis.outdatedImage = {
+        current: existingConfig.image,
+        recommended: imageMapping[existingConfig.image]
+      };
+      analysis.issues.push(`Outdated image reference: ${existingConfig.image} → ${imageMapping[existingConfig.image]}`);
+    }
+
+    // Preserve custom VS Code extensions
+    if (existingConfig.customizations?.vscode?.extensions) {
+      const standardExtensions = ['anthropic.claude-code'];
+      analysis.customizations.extensions = existingConfig.customizations.vscode.extensions.filter(ext => 
+        !standardExtensions.includes(ext)
+      );
+    }
+
+    // Preserve custom ports
+    if (existingConfig.forwardPorts) {
+      analysis.customizations.ports = existingConfig.forwardPorts;
+    }
+
+    // Check if MCP servers are missing or could be improved
+    if (analysis.mcpFeatures.length === 0) {
+      analysis.issues.push('No MCP servers configured - consider adding serena and context7');
+    }
+
+    return analysis;
+  }
+
+  async generateMigrationConfig(existingConfig, analysis) {
+    // Start with existing config to preserve user customizations
+    const updatedConfig = { ...existingConfig };
+
+    // Fix image reference if needed
+    if (analysis.outdatedImage) {
+      updatedConfig.image = analysis.outdatedImage.recommended;
+    }
+
+    // Add or fix .claude mount
+    if (!analysis.hasClaudeMount) {
+      const claudeMount = "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind";
+      
+      if (!updatedConfig.mounts) {
+        updatedConfig.mounts = [];
+      }
+      
+      // Add .claude mount first, then preserve custom mounts
+      updatedConfig.mounts = [claudeMount, ...analysis.customizations.mounts];
+    }
+
+    // Add MCP features if missing
+    if (analysis.mcpFeatures.length === 0) {
+      const { addMCP } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'addMCP',
+          message: 'Add recommended MCP servers (serena, context7)?',
+          default: true
+        }
+      ]);
+
+      if (addMCP) {
+        if (!updatedConfig.features) {
+          updatedConfig.features = {};
+        }
+        
+        updatedConfig.features['ghcr.io/visheshd/claude-devcontainer/claude-mcp:1'] = {
+          servers: 'serena,context7'
+        };
+      }
+    }
+
+    // Ensure Claude Code extension is present
+    if (!updatedConfig.customizations) {
+      updatedConfig.customizations = {};
+    }
+    if (!updatedConfig.customizations.vscode) {
+      updatedConfig.customizations.vscode = {};
+    }
+    if (!updatedConfig.customizations.vscode.extensions) {
+      updatedConfig.customizations.vscode.extensions = [];
+    }
+
+    const extensions = updatedConfig.customizations.vscode.extensions;
+    if (!extensions.includes('anthropic.claude-code')) {
+      extensions.unshift('anthropic.claude-code');
+    }
+
+    // Remove duplicates while preserving order
+    updatedConfig.customizations.vscode.extensions = [...new Set(extensions)];
+
+    return updatedConfig;
+  }
 }
 
 // CLI Commands
@@ -399,7 +640,25 @@ program
   .option('--no-interaction', 'Run without interactive prompts')
   .action(async (options) => {
     const generator = new DevContainerGenerator(options);
-    await generator.migrate();
+    await generator.init();
+  });
+
+program
+  .command('migrate')
+  .description('Migrate existing DevContainer configuration to latest Claude setup')
+  .option('--dry-run', 'Show proposed changes without applying them')
+  .option('--auto', 'Apply safe changes automatically without prompting')
+  .action(async (options) => {
+    const generator = new DevContainerGenerator();
+    await generator.migrate(options);
+  });
+
+program
+  .command('check')
+  .description('Analyze existing DevContainer configuration for issues')
+  .action(async () => {
+    const generator = new DevContainerGenerator();
+    await generator.migrate({ dryRun: true });
   });
 
 program
@@ -435,3 +694,6 @@ program
   });
 
 program.parse();
+
+// Export for testing
+export { DevContainerGenerator };
