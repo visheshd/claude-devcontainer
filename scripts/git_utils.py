@@ -21,7 +21,7 @@ def run_git_command(args, cwd=None, capture_output=True, text=True):
     
     try:
         return subprocess.run(
-            ["git"] + args,
+            ["/usr/bin/git"] + args,
             cwd=cwd,
             capture_output=capture_output,
             text=text,
