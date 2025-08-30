@@ -12,21 +12,20 @@ This template provides automated devcontainer configuration for git worktrees wi
 
 ## Quick Setup
 
-1. **Copy this template to your worktree**:
+1. **Run the setup script in your worktree**:
    ```bash
-   mkdir -p .devcontainer
-   cp /path/to/claude-docker/templates/devcontainer/* .devcontainer/
+   cd /path/to/your-worktree
+   /path/to/claude-devcontainer/scripts/setup-worktree.sh
    ```
+   
+   This will automatically copy all necessary files to your worktree's `.devcontainer/` directory.
 
-2. **Update the initializeCommand path** in `devcontainer.json`:
-   ```json
-   "initializeCommand": "/path/to/claude-docker/scripts/setup-worktree-mounts.sh"
-   ```
-
-3. **Open in VS Code/Cursor**:
+2. **Open in VS Code/Cursor**:
    - Open your worktree directory in VS Code/Cursor
    - Click "Reopen in Container" when prompted
    - The setup will automatically detect your worktree and configure everything
+
+**That's it!** Everything is now self-contained in your worktree.
 
 ## How It Works
 

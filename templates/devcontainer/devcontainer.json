@@ -4,11 +4,11 @@
   
   // Initialize command runs on HOST before container starts
   // This script analyzes the worktree and configures the container mounts automatically
-  "initializeCommand": "${localWorkspaceFolder}/../../claude-docker/scripts/setup-worktree-mounts.sh",
+  "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
   
   // Post-create command runs inside container after creation
   // This configures the git wrapper environment and validates the setup
-  "postCreateCommand": "/home/claude-user/scripts/configure-git-wrapper.sh",
+  "postCreateCommand": ".devcontainer/configure-git-wrapper.sh",
   
   // Mount configuration (will be automatically updated by initializeCommand)
   // The setup script will detect your main repository and add the proper mount

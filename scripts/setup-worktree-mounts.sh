@@ -63,10 +63,10 @@ create_devcontainer_config() {
   "image": "claude-nextjs:latest",
   
   // Initialize command runs on HOST before container starts
-  "initializeCommand": "$SCRIPT_DIR/setup-worktree-mounts.sh",
+  "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
   
   // Post-create command runs inside container after creation
-  "postCreateCommand": "$SCRIPT_DIR/configure-git-wrapper.sh",
+  "postCreateCommand": ".devcontainer/configure-git-wrapper.sh",
   
   // Mount both the worktree and main repository
   "mounts": [
@@ -120,7 +120,8 @@ update_devcontainer_config() {
         local temp_file
         temp_file=$(mktemp)
         
-        jq --arg main_repo "$main_repo_path" \
+        # Try to update with jq, but fall back to recreate if it fails (e.g., due to comments)
+        if jq --arg main_repo "$main_repo_path" \
            --arg worktree_name "$(basename "$CURRENT_DIR")" \
            '
            .mounts = [
@@ -130,10 +131,15 @@ update_devcontainer_config() {
            .containerEnv.WORKTREE_HOST_MAIN_REPO = $main_repo |
            .containerEnv.WORKTREE_CONTAINER_MAIN_REPO = "/main-repo" |
            .containerEnv.WORKTREE_NAME = $worktree_name
-           ' "$DEVCONTAINER_JSON" > "$temp_file"
-        
-        mv "$temp_file" "$DEVCONTAINER_JSON"
-        debug_log "Updated devcontainer.json using jq"
+           ' "$DEVCONTAINER_JSON" > "$temp_file" 2>/dev/null; then
+            
+            mv "$temp_file" "$DEVCONTAINER_JSON"
+            debug_log "Updated devcontainer.json using jq"
+        else
+            rm -f "$temp_file"
+            debug_log "jq failed (likely due to JSON comments), recreating devcontainer.json"
+            create_devcontainer_config "$main_repo_path"
+        fi
     else
         debug_log "jq not available, recreating devcontainer.json"
         create_devcontainer_config "$main_repo_path"
