@@ -1,27 +1,34 @@
 # Custom Images for Claude DevContainers
 
-This directory contains examples and templates for creating custom Claude DevContainer images. All examples extend from `claude-base:latest` to ensure compatibility with the Claude Code toolchain.
+This directory contains practical examples for creating custom Claude DevContainer images tailored for specific development stacks. All examples extend from `claude-base:latest` to ensure compatibility with the Claude Code toolchain.
+
+## Available Examples
+
+### Ruby on Rails Development
+**Path**: `ruby-rails/`  
+**Use Case**: Full-stack Ruby web development with Rails 7, PostgreSQL, Redis, and modern tooling
+- Ruby 3.2 with rbenv version management
+- Rails 7.1+ with Hotwire and modern frontend tools
+- Database clients (PostgreSQL, Redis, SQLite)
+- RuboCop, RSpec, and development tools
+
+### Laravel Development  
+**Path**: `laravel/`  
+**Use Case**: Modern PHP web development with Laravel 10, Composer, and testing frameworks
+- PHP 8.2 with all essential extensions
+- Laravel installer and global tools
+- Database support (MySQL, PostgreSQL, Redis)
+- Xdebug, PHPStan, Laravel Pint for code quality
 
 ## Directory Structure
 
 ```
 docs/custom-images/
 ├── README.md                           # This file
-├── basic-extension/                    # Simple extension example
+├── ruby-rails/                         # Ruby on Rails development
 │   ├── Dockerfile
 │   └── README.md
-├── multi-language/                     # Multiple programming languages
-│   ├── Dockerfile
-│   └── README.md
-├── database-development/               # Database tools and clients
-│   ├── Dockerfile
-│   ├── scripts/
-│   │   └── db-connect.sh
-│   └── README.md
-├── devops-tools/                       # DevOps and infrastructure tools
-│   ├── Dockerfile
-│   └── README.md
-└── scientific-computing/               # Scientific computing beyond ML
+└── laravel/                            # Laravel PHP development
     ├── Dockerfile
     └── README.md
 ```
@@ -69,59 +76,85 @@ docs/custom-images/
 
 ## Example Workflows
 
-### Local Development
+### Building Ruby on Rails Image
 ```bash
-# Build and test locally
-docker build -t my-custom:latest .
-docker run --rm my-custom:latest claude --version
+# Build Rails development environment
+docker build -f docs/custom-images/ruby-rails/Dockerfile -t claude-rails:latest .
+
+# Test the Rails environment
+docker run --rm claude-rails:latest rails-start
 
 # Use with DevContainer
 claude-devcontainer init -s custom
-# Edit devcontainer.json to use "my-custom:latest"
+# Edit devcontainer.json: "image": "claude-rails:latest"
+```
+
+### Building Laravel Image  
+```bash
+# Build Laravel development environment
+docker build -f docs/custom-images/laravel/Dockerfile -t claude-laravel:latest .
+
+# Test the Laravel environment
+docker run --rm claude-laravel:latest laravel-start
+
+# Use with DevContainer
+claude-devcontainer init -s custom
+# Edit devcontainer.json: "image": "claude-laravel:latest"
 ```
 
 ### Team Distribution
 ```bash
 # Push to company registry
-docker tag my-custom:latest registry.company.com/my-custom:latest
-docker push registry.company.com/my-custom:latest
+docker tag claude-rails:latest registry.company.com/claude-rails:latest
+docker push registry.company.com/claude-rails:latest
 
-# Team uses: "image": "registry.company.com/my-custom:latest"
+# Team uses: "image": "registry.company.com/claude-rails:latest"
 ```
 
 ### Public Distribution
 ```bash
 # Push to GitHub Container Registry
-docker tag my-custom:latest ghcr.io/username/my-custom:latest
-docker push ghcr.io/username/my-custom:latest
+docker tag claude-laravel:latest ghcr.io/username/claude-laravel:latest
+docker push ghcr.io/username/claude-laravel:latest
 
-# Others use: "image": "ghcr.io/username/my-custom:latest"
+# Others use: "image": "ghcr.io/username/claude-laravel:latest"
 ```
 
 ## Testing Custom Images
 
 ### Basic Functionality Tests
 ```bash
-# Test Claude Code works
-docker run --rm my-custom:latest claude --version
+# Test Rails image
+docker run --rm claude-rails:latest ruby --version
+docker run --rm claude-rails:latest rails --version
+docker run --rm claude-rails:latest bundle --version
 
-# Test base tools work
-docker run --rm my-custom:latest git --version
-docker run --rm my-custom:latest node --version
+# Test Laravel image  
+docker run --rm claude-laravel:latest php --version
+docker run --rm claude-laravel:latest composer --version
+docker run --rm claude-laravel:latest laravel --version
 
-# Test custom tools work
-docker run --rm my-custom:latest your-tool --version
+# Test base Claude functionality
+docker run --rm claude-rails:latest claude --version
 ```
 
 ### Integration Tests
 ```bash
-# Test full DevContainer workflow
-cd test-project
+# Test Rails DevContainer workflow
+mkdir test-rails-project && cd test-rails-project
 claude-devcontainer init -s custom
-# Edit devcontainer.json to use your image
+# Edit devcontainer.json: "image": "claude-rails:latest"
 code .
 # Use "Dev Containers: Reopen in Container"
-# Verify all tools work as expected
+# Test: rails new myapp && cd myapp && rails server
+
+# Test Laravel DevContainer workflow  
+mkdir test-laravel-project && cd test-laravel-project
+claude-devcontainer init -s custom
+# Edit devcontainer.json: "image": "claude-laravel:latest"  
+code .
+# Use "Dev Containers: Reopen in Container"
+# Test: laravel new myapp && cd myapp && php artisan serve
 ```
 
 ## Contributing Examples

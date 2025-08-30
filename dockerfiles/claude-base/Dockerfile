@@ -48,17 +48,21 @@ ENV PATH="/usr/local/bin:${PATH}"
 WORKDIR /app
 RUN mkdir -p /app/.claude /home/claude-user/.claude /home/claude-user/scripts
 
-# Copy git wrapper script, Claude wrapper, and utilities
+# Copy git wrapper script, Claude wrapper, startup script, and utilities
 COPY scripts/git-wrapper.sh /home/claude-user/scripts/
 COPY scripts/claude-wrapper.sh /home/claude-user/scripts/
 COPY scripts/git_utils.py /home/claude-user/scripts/
-RUN chmod +x /home/claude-user/scripts/git-wrapper.sh /home/claude-user/scripts/claude-wrapper.sh
+COPY dockerfiles/claude-base/startup.sh /home/claude-user/scripts/
+RUN chmod +x /home/claude-user/scripts/git-wrapper.sh /home/claude-user/scripts/claude-wrapper.sh /home/claude-user/scripts/startup.sh
 
 # Install git wrapper at higher precedence than system git
 RUN ln -sf /home/claude-user/scripts/git-wrapper.sh /usr/local/bin/git
 
 # Install Claude wrapper at higher precedence than system claude-code
 RUN ln -sf /home/claude-user/scripts/claude-wrapper.sh /usr/local/bin/claude
+
+# Install startup script
+RUN ln -sf /home/claude-user/scripts/startup.sh /usr/local/bin/startup.sh
 
 # Create simple bash prompt (no git integration)
 RUN echo 'PS1="\u@\h:\w\$ "' > /home/claude-user/.bashrc && \
