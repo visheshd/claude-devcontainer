@@ -38,17 +38,55 @@ get_worktree_info() {
     fi
 }
 
+# Function to detect if we're in a devcontainer
+is_devcontainer() {
+    [ -d "/workspaces" ] || [ -n "$CODESPACES" ] || [ -n "$DEVCONTAINER" ]
+}
+
 # Function to transform paths from host to container
 transform_gitdir_path() {
     local gitdir_line="$1"
     local host_main_repo="${WORKTREE_HOST_MAIN_REPO:-}"
     local container_main_repo="${WORKTREE_CONTAINER_MAIN_REPO:-/main-repo}"
     
-    if [ -n "$host_main_repo" ]; then
-        echo "$gitdir_line" | sed "s|$host_main_repo|$container_main_repo|g"
-    else
-        echo "$gitdir_line"
+    debug_log "Transforming gitdir path: $gitdir_line"
+    debug_log "Host main repo: $host_main_repo"
+    debug_log "Container main repo: $container_main_repo"
+    
+    # If environment variables are set, use them for transformation
+    if [ -n "$host_main_repo" ] && [ -n "$container_main_repo" ]; then
+        local transformed
+        transformed=$(echo "$gitdir_line" | sed "s|$host_main_repo|$container_main_repo|g")
+        debug_log "Path transformed to: $transformed"
+        echo "$transformed"
+        return 0
     fi
+    
+    # Auto-detect devcontainer transformation if no explicit config
+    if is_devcontainer; then
+        debug_log "Devcontainer detected, attempting auto-transformation"
+        
+        # Try to auto-detect the main repo path transformation
+        # Common patterns: /Users/user/Work/repo -> /main-repo
+        local auto_transformed
+        if echo "$gitdir_line" | grep -q "/Users/"; then
+            # Extract the repo name from the path and assume it's mounted at /main-repo
+            auto_transformed=$(echo "$gitdir_line" | sed 's|gitdir: /Users/[^/]*/Work/[^/]*|gitdir: /main-repo|')
+            debug_log "Auto-transformed (macOS): $auto_transformed"
+            echo "$auto_transformed"
+            return 0
+        elif echo "$gitdir_line" | grep -q "/home/"; then
+            # Linux path pattern
+            auto_transformed=$(echo "$gitdir_line" | sed 's|gitdir: /home/[^/]*/[^/]*|gitdir: /main-repo|')
+            debug_log "Auto-transformed (Linux): $auto_transformed"
+            echo "$auto_transformed"
+            return 0
+        fi
+    fi
+    
+    # No transformation applied
+    debug_log "No path transformation applied"
+    echo "$gitdir_line"
 }
 
 # Function to handle worktree git command

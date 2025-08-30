@@ -1,0 +1,117 @@
+{
+  "name": "Claude Worktree Development",
+  "image": "claude-nextjs:latest",
+  
+  // Initialize command runs on HOST before container starts
+  // This script analyzes the worktree and configures the container mounts automatically
+  "initializeCommand": "${localWorkspaceFolder}/../../claude-docker/scripts/setup-worktree-mounts.sh",
+  
+  // Post-create command runs inside container after creation
+  // This configures the git wrapper environment and validates the setup
+  "postCreateCommand": "/home/claude-user/scripts/configure-git-wrapper.sh",
+  
+  // Mount configuration (will be automatically updated by initializeCommand)
+  // The setup script will detect your main repository and add the proper mount
+  "mounts": [
+    // Main repository mount will be added automatically by setup-worktree-mounts.sh
+    // Example: "source=/Users/user/Work/main-repo,target=/main-repo,type=bind,consistency=cached"
+  ],
+  
+  // Environment variables for git wrapper (will be set automatically)
+  "containerEnv": {
+    // These will be populated by the setup script:
+    // "WORKTREE_DETECTED": "true",
+    // "WORKTREE_HOST_MAIN_REPO": "/Users/user/Work/main-repo", 
+    // "WORKTREE_CONTAINER_MAIN_REPO": "/main-repo",
+    // "WORKTREE_NAME": "worktree-name"
+  },
+  
+  // Container configuration
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "claude-user",
+  
+  // VS Code customizations
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // TypeScript/JavaScript
+        "ms-vscode.vscode-typescript-next",
+        "esbenp.prettier-vscode",
+        
+        // React/Next.js
+        "bradlc.vscode-tailwindcss",
+        "formulahendry.auto-rename-tag",
+        
+        // Git
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        
+        // Development tools
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vsliveshare.vsliveshare"
+      ],
+      "settings": {
+        // Git configuration
+        "git.enableSmartCommit": true,
+        "git.confirmSync": false,
+        "git.autofetch": true,
+        
+        // Editor configuration
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": true
+        },
+        
+        // TypeScript configuration
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "typescript.suggest.autoImports": true,
+        
+        // Terminal configuration
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        
+        // File associations
+        "files.associations": {
+          "*.env.*": "properties"
+        }
+      }
+    }
+  },
+  
+  // Port forwarding for development servers
+  "forwardPorts": [3000, 3001, 5173, 8080, 8000, 9000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js Dev Server",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "API Server",
+      "onAutoForward": "silent"
+    }
+  },
+  
+  // Features and additional configuration
+  "features": {
+    // Enable Docker inside the devcontainer if needed
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest"
+    },
+    
+    // Add GitHub CLI
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+  
+  // Lifecycle hooks
+  "onCreateCommand": {
+    "install-deps": "npm install || pnpm install || yarn install || echo 'No package.json found'"
+  },
+  
+  // Resource limits
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "4gb"
+  }
+}
