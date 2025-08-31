@@ -27,7 +27,13 @@
       "Read(/Users/visheshd/Library/Containers/at.EternalStorms.Yoink/Data/Documents/YoinkPromisedFiles.noIndex/yoinkFilePromiseCreationFolder5EFE9EEE-8860-4CBF-B1CD-1BC134509062/add5EFE9EEE-8860-4CBF-B1CD-1BC134509062/**)",
       "mcp__serena__find_file",
       "Bash(docker system:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Read(/Users/visheshd/Work/open-source/sim/.devcontainer/**)",
+      "Read(/Users/visheshd/Work/open-source/sim/.devcontainer/**)",
+      "Read(/Users/visheshd/Work/open-source/sim/.devcontainer/**)",
+      "Read(/Users/visheshd/Work/open-source/sim/.devcontainer/**)"
     ],
     "deny": []
   }

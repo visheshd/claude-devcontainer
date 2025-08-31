@@ -30,6 +30,10 @@ data/
 # Serena and other tool directories
 .serena/
 
+# Tool build artifacts
+tools/claude-devcontainer/coverage/
+tools/claude-devcontainer/dist/
+
 # Environment file with credentials
 .env
 plan.md 
