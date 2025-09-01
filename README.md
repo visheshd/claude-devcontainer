@@ -1,12 +1,14 @@
 # Claude DevContainer Ecosystem
 
-**Fast, isolated development with Claude Code across multiple git worktrees, native host builds via SSH, and `--dangerously-skip-permissions` for maximum development speed.**
+**Fast, isolated local development with Claude Code across multiple git worktrees, native host builds via SSH, and `--dangerously-skip-permissions` for maximum development speed.**
 
-A comprehensive DevContainer-based development environment that enables seamless multi-worktree development, containerized Claude Code with unrestricted permissions, and native host system builds through SSH integration.
+A comprehensive DevContainer-based development environment for local development that enables seamless multi-worktree development, containerized Claude Code with unrestricted permissions, and native host system builds through SSH integration. All Docker images are built locally on your machine.
 
 [![Build Images](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml/badge.svg)](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml)
 
 📋 **MCP Setup Guide**: See [MCP_SERVERS.md](MCP_SERVERS.md) for customizing or adding more MCP servers
+
+> ⚠️ **Important**: All Docker images must be built locally. This project does not provide pre-built images on Docker Hub or other registries. You must run the build process on your machine before using any DevContainer configurations.
 
 ## 🎯 Key Benefits
 
@@ -21,12 +23,23 @@ A comprehensive DevContainer-based development environment that enables seamless
 
 ## 🚀 Quick Start
 
+### 1. Build Docker Images (Required First Step)
+```bash
+# Build all images locally (required before first use)
+chmod +x build-all-images.sh
+./build-all-images.sh --rebuild
+```
+
+### 2. Install CLI Tool
 ```bash
 # Install the CLI tool locally (one-time setup)
 cd tools/claude-devcontainer
 npm install
 npm link
+```
 
+### 3. Create and Use DevContainer
+```bash
 # Create new project with DevContainer
 claude-devcontainer init
 
@@ -56,28 +69,30 @@ claude-devcontainer stacks
 
 ## 🏗️ Architecture
 
-### Layer 1: Base Image
+### Layer 1: Base Image (Local Build)
 - **claude-base**: Foundation with Claude Code + essential dev tools
 - **Components**: Node.js 20, Git, SSH, oh-my-zsh, authentication setup
+- **Build locally**: `./dockerfiles/claude-base/build.sh`
 
-### Layer 2: Stack Images  
+### Layer 2: Stack Images (Local Builds)
 - **claude-python-ml**: Python 3.11+, uv, ML libraries, Jupyter, LangChain
 - **claude-rust-tauri**: Rust toolchain, Tauri v2, cross-compilation support
 - **claude-nextjs**: Node.js optimized, pnpm (not npm), modern web development tools
+- **Build all**: `./build-all-images.sh --rebuild`
 
 ### Layer 3: DevContainer Features
 - **claude-mcp**: Configurable MCP server installation and management
 - **host-ssh-build**: SSH-based builds on host system (macOS native builds)
 - **git-wrapper**: Automated git worktree operations with atomic transaction support
 
-## 📋 Available Stacks
+## 📋 Available Stacks (Local Builds)
 
-| Stack | Base Image | Use Case | Key Features |
-|-------|------------|----------|--------------|
-| **Python ML** | `claude-python-ml:latest` | AI/ML Development | Python 3.11, Jupyter, LangChain, PyTorch, Vector DBs |
-| **Rust Tauri** | `claude-rust-tauri:latest` | Desktop Apps | Rust toolchain, Tauri v2, Cross-compilation, GUI libs |
-| **Next.js** | `claude-nextjs:latest` | Web Development | Node.js, pnpm, TypeScript, Tailwind, Modern web tools |
-| **Custom** | `claude-base:latest` | General Purpose | Base environment for custom configurations |
+| Stack | Local Image Tag | Use Case | Key Features |
+|-------|-----------------|----------|--------------|
+| **Python ML** | `claude-python-ml:latest` *(local)* | AI/ML Development | Python 3.11, Jupyter, LangChain, PyTorch, Vector DBs |
+| **Rust Tauri** | `claude-rust-tauri:latest` *(local)* | Desktop Apps | Rust toolchain, Tauri v2, Cross-compilation, GUI libs |
+| **Next.js** | `claude-nextjs:latest` *(local)* | Web Development | Node.js, pnpm, TypeScript, Tailwind, Modern web tools |
+| **Custom** | `claude-base:latest` *(local)* | General Purpose | Base environment for custom configurations |
 
 ## 🔨 Building Images Locally
 
@@ -124,14 +139,14 @@ cd ../nextjs && ./build.sh --base-image claude-base:latest
 
 The Claude DevContainer system is designed for extensibility. You can create custom images for specialized environments while maintaining full compatibility with the Claude toolchain.
 
-### Image Architecture
+### Image Architecture (All Local Builds)
 
 ```
-claude-base:latest              # Foundation with Claude Code, git, build tools
-├── claude-python-ml:latest     # + Python 3.11, ML libraries, Jupyter  
-├── claude-rust-tauri:latest    # + Rust toolchain, Tauri v2, GUI deps
-├── claude-nextjs:latest        # + Node.js, Bun, TypeScript tools
-└── your-custom:latest          # + Your specialized tools
+claude-base:latest              # Foundation with Claude Code, git, build tools (local)
+├── claude-python-ml:latest     # + Python 3.11, ML libraries, Jupyter (local)
+├── claude-rust-tauri:latest    # + Rust toolchain, Tauri v2, GUI deps (local)
+├── claude-nextjs:latest        # + Node.js, Bun, TypeScript tools (local)
+└── your-custom:latest          # + Your specialized tools (local)
 ```
 
 ### Creating Custom Images
@@ -313,4 +328,43 @@ code . && # "Dev Containers: Reopen in Container"
 - Verify CLI tool works with `npm test` (if tests exist)
 - Update documentation for any new features
 - Follow existing code patterns and conventions
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**"Error: image not found" when opening DevContainer**
+```bash
+# Solution: Build images first (required)
+./build-all-images.sh --rebuild
+```
+
+**DevContainer fails to start with missing image**
+```bash
+# Verify images were built successfully
+docker images | grep claude
+
+# Expected output should show:
+# claude-base          latest    ...
+# claude-python-ml     latest    ... 
+# claude-rust-tauri    latest    ...
+# claude-nextjs        latest    ...
+```
+
+**CLI tool not found after npm link**
+```bash
+# Reinstall CLI tool
+cd tools/claude-devcontainer
+npm unlink  # if previously linked
+npm install && npm link
+```
+
+**Build fails with permission errors**
+```bash
+# Ensure build script is executable
+chmod +x build-all-images.sh
+chmod +x dockerfiles/*/build.sh
+```
+
+For more help, see [Building Images Locally](#-building-images-locally) section above.
 
