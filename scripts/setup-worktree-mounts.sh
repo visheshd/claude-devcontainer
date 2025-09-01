@@ -44,67 +44,8 @@ get_main_repo_path() {
     echo "$main_repo_path"
 }
 
-# Create or update devcontainer.json with worktree mount
-create_devcontainer_config() {
-    local main_repo_path="$1"
-    local worktree_name
-    worktree_name=$(basename "$CURRENT_DIR")
-    
-    debug_log "Creating devcontainer config for worktree: $worktree_name"
-    debug_log "Main repo path: $main_repo_path"
-    
-    # Create .devcontainer directory if it doesn't exist
-    mkdir -p "$CURRENT_DIR/.devcontainer"
-    
-    # Generate devcontainer.json
-    cat > "$DEVCONTAINER_JSON" << EOF
-{
-  "name": "Claude Worktree: $worktree_name",
-  "image": "claude-nextjs:latest",
-  
-  // Initialize command runs on HOST before container starts
-  "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
-  
-  // Post-create command runs inside container after creation
-  "postCreateCommand": ".devcontainer/configure-git-wrapper.sh",
-  
-  // Mount both the worktree and main repository
-  "mounts": [
-    "source=$main_repo_path,target=/main-repo,type=bind,consistency=cached"
-  ],
-  
-  // Environment variables for git wrapper
-  "containerEnv": {
-    "WORKTREE_DETECTED": "true",
-    "WORKTREE_HOST_MAIN_REPO": "$main_repo_path",
-    "WORKTREE_CONTAINER_MAIN_REPO": "/main-repo",
-    "WORKTREE_NAME": "$worktree_name"
-  },
-  
-  // Working directory inside container
-  "workspaceFolder": "/workspaces/$worktree_name",
-  
-  // VS Code extensions and settings
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-vscode.vscode-typescript-next",
-        "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss"
-      ]
-    }
-  },
-  
-  // Forward common ports
-  "forwardPorts": [3000, 3001, 5173, 8080],
-  
-  // Use non-root user
-  "remoteUser": "claude-user"
-}
-EOF
-    
-    debug_log "Created devcontainer.json at: $DEVCONTAINER_JSON"
-}
+# This function was removed to prevent accidental destruction of user configurations.
+# The update_devcontainer_config function now safely updates only worktree-specific fields.
 
 # Update existing devcontainer.json with mount
 update_devcontainer_config() {
@@ -115,34 +56,44 @@ update_devcontainer_config() {
     # Create a backup
     cp "$DEVCONTAINER_JSON" "$DEVCONTAINER_JSON.backup.$(date +%s)"
     
-    # Use jq to update the configuration if available, otherwise recreate
+    # Use jq to update the configuration - strip comments first to avoid jq failures
     if command -v jq >/dev/null 2>&1; then
-        local temp_file
+        local temp_file temp_clean_file
         temp_file=$(mktemp)
+        temp_clean_file=$(mktemp)
         
-        # Try to update with jq, but fall back to recreate if it fails (e.g., due to comments)
+        # Strip JSON comments before processing with jq to avoid failures
+        sed 's|//.*||g' "$DEVCONTAINER_JSON" > "$temp_clean_file"
+        
+        # Update only worktree-specific fields, preserving all existing configuration
         if jq --arg main_repo "$main_repo_path" \
            --arg worktree_name "$(basename "$CURRENT_DIR")" \
            '
-           .mounts = [
-             "source=\($main_repo),target=/main-repo,type=bind,consistency=cached"
-           ] |
+           # Add the main repo mount to existing mounts (preserving others like .claude, avoiding duplicates)
+           .mounts = ((.mounts // []) | map(select(contains("target=/main-repo") | not))) + ["source=\($main_repo),target=/main-repo,type=bind,consistency=cached"] |
+           # Ensure containerEnv exists and set worktree variables
+           .containerEnv = (.containerEnv // {}) |
            .containerEnv.WORKTREE_DETECTED = "true" |
            .containerEnv.WORKTREE_HOST_MAIN_REPO = $main_repo |
            .containerEnv.WORKTREE_CONTAINER_MAIN_REPO = "/main-repo" |
            .containerEnv.WORKTREE_NAME = $worktree_name
-           ' "$DEVCONTAINER_JSON" > "$temp_file" 2>/dev/null; then
+           ' "$temp_clean_file" > "$temp_file" 2>/dev/null; then
             
             mv "$temp_file" "$DEVCONTAINER_JSON"
-            debug_log "Updated devcontainer.json using jq"
+            rm -f "$temp_clean_file"
+            debug_log "Updated devcontainer.json using jq (after stripping comments)"
         else
-            rm -f "$temp_file"
-            debug_log "jq failed (likely due to JSON comments), recreating devcontainer.json"
-            create_devcontainer_config "$main_repo_path"
+            rm -f "$temp_file" "$temp_clean_file"
+            echo "Error: Failed to update devcontainer.json with jq" >&2
+            echo "This preserves your existing configuration to avoid data loss." >&2
+            debug_log "jq failed even after stripping comments - configuration preserved"
+            return 1
         fi
     else
-        debug_log "jq not available, recreating devcontainer.json"
-        create_devcontainer_config "$main_repo_path"
+        echo "Error: jq is required for worktree setup but not available" >&2
+        echo "Please install jq to enable worktree detection" >&2
+        debug_log "jq not available - cannot update devcontainer.json safely"
+        return 1
     fi
 }
 
@@ -170,13 +121,16 @@ main() {
     
     debug_log "Main repository found at: $main_repo_path"
     
-    # Create or update devcontainer configuration
+    # Update existing devcontainer configuration with worktree support
     if [ -f "$DEVCONTAINER_JSON" ]; then
-        debug_log "Existing devcontainer.json found"
+        debug_log "Existing devcontainer.json found - updating with worktree support"
         update_devcontainer_config "$main_repo_path"
     else
-        debug_log "No existing devcontainer.json found"
-        create_devcontainer_config "$main_repo_path"
+        echo "Error: No devcontainer.json found at $DEVCONTAINER_JSON" >&2
+        echo "Worktree detection requires an existing devcontainer configuration." >&2
+        echo "Please run 'claude-devcontainer init' in the main repository first." >&2
+        debug_log "No devcontainer.json found - cannot add worktree support to non-existent config"
+        exit 1
     fi
     
     echo "✅ Devcontainer configured for worktree with main repo mounted at /main-repo"
