@@ -10,11 +10,14 @@ The migration tool automatically analyzes your current `.devcontainer/devcontain
 
 The Claude DevContainer system has evolved to provide better developer experience with:
 
+- **Universal Worktree Detection** - Automatic support for both main repositories and git worktrees without manual configuration
+- **Git Wrapper Integration** - Seamless git operations across worktree boundaries with automatic path translation
 - **Automatic `.claude` directory mounting** for user customizations and preferences
 - **Integrated MCP (Model Context Protocol) servers** (serena and context7) for enhanced AI assistance
 - **Updated base images** with improved tooling and performance optimizations
 - **Better VS Code extension management** with automatic Claude Code extension inclusion
 - **Enhanced security and reliability** through updated dependencies and configurations
+- **Template Inheritance System** - Single source of truth for universal features
 - **Improved startup performance** and resource utilization
 
 ## Migration Process
@@ -145,6 +148,38 @@ Make sure the Claude Code extension is included:
   }
 }
 ```
+
+#### 5. Add Universal Worktree Detection (New!)
+
+Enable automatic worktree detection and git wrapper functionality:
+
+**Old:**
+```json
+{
+  "name": "My Project",
+  "image": "claude-base:latest",
+  "postCreateCommand": "npm install"
+}
+```
+
+**New:**
+```json
+{
+  "name": "My Project",
+  "image": "claude-base:latest", 
+  "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
+  "postCreateCommand": "npm install && .devcontainer/configure-git-wrapper.sh",
+  "containerEnv": {
+    // Populated automatically by worktree detection:
+    // "WORKTREE_DETECTED": "true/false",
+    // "WORKTREE_HOST_MAIN_REPO": "/path/to/main",
+    // "WORKTREE_CONTAINER_MAIN_REPO": "/main-repo", 
+    // "WORKTREE_NAME": "branch-name"
+  }
+}
+```
+
+The migration will automatically copy the required scripts (`setup-worktree-mounts.sh` and `configure-git-wrapper.sh`) to your `.devcontainer/` directory.
 
 ## Migration Examples
 

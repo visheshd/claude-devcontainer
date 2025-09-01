@@ -50,7 +50,7 @@ function createProgram() {
   // Migration commands
   program
     .command('migrate')
-    .description('Migrate existing DevContainer configuration to latest Claude setup')
+    .description('Migrate existing DevContainer configuration to latest Claude setup with universal worktree detection')
     .option('--dry-run', 'Show proposed changes without applying them')
     .option('--auto', 'Apply safe changes automatically without prompting')
     .action(async (options) => {

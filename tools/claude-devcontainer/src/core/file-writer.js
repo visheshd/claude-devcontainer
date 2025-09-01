@@ -1,8 +1,13 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import ora from 'ora';
 import { getStack } from './stack-configuration.js';
 import { TemplateManager } from './template-manager.js';
+
+// Get current file directory for script resolution
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * FileWriter handles creating and managing DevContainer files
@@ -11,6 +16,32 @@ import { TemplateManager } from './template-manager.js';
 export class FileWriter {
   constructor() {
     this.templateManager = new TemplateManager();
+    // Resolve scripts directory relative to this file
+    this.scriptsDir = path.resolve(__dirname, '../../../../scripts');
+  }
+
+  /**
+   * Copy worktree setup scripts to .devcontainer directory
+   * These scripts enable universal worktree detection and git wrapper functionality
+   */
+  async copyWorktreeScripts() {
+    const scriptsNeeded = [
+      'setup-worktree-mounts.sh',
+      'configure-git-wrapper.sh'
+    ];
+
+    for (const scriptName of scriptsNeeded) {
+      const sourcePath = path.join(this.scriptsDir, scriptName);
+      const targetPath = path.join('.devcontainer', scriptName);
+      
+      if (await fs.pathExists(sourcePath)) {
+        await fs.copy(sourcePath, targetPath);
+        // Make script executable
+        await fs.chmod(targetPath, 0o755);
+      } else {
+        throw new Error(`Required worktree script not found: ${sourcePath}`);
+      }
+    }
   }
 
   /**
@@ -24,6 +55,10 @@ export class FileWriter {
     try {
       // Create .devcontainer directory
       await fs.ensureDir('.devcontainer');
+
+      // ALWAYS copy worktree scripts - this ensures universal worktree support
+      await this.copyWorktreeScripts();
+      spinner.text = 'Copied worktree detection scripts';
 
       // Write devcontainer.json
       await fs.writeJson('.devcontainer/devcontainer.json', config, { spaces: 2 });
@@ -64,6 +99,10 @@ export class FileWriter {
       // Create .devcontainer directory
       await fs.ensureDir('.devcontainer');
       spinner.text = 'Created directories';
+
+      // ALWAYS copy worktree scripts - this ensures universal worktree support
+      await this.copyWorktreeScripts();
+      spinner.text = 'Copied worktree detection scripts';
 
       // Copy template files to project root
       await this.templateManager.copyTemplateFiles(stackConfig.template);

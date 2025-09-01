@@ -1,0 +1,92 @@
+{
+  "name": "Claude Development Container",
+  
+  // Initialize command runs on HOST before container starts
+  // This script analyzes the worktree and configures the container mounts automatically
+  "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
+  
+  // Post-create command runs inside container after creation
+  // This configures the git wrapper environment and validates the setup
+  "postCreateCommand": ".devcontainer/configure-git-wrapper.sh",
+  
+  // Mount configuration (will be automatically updated by initializeCommand)
+  // The setup script will detect your main repository and add the proper mount
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+    // Main repository mount will be added automatically by setup-worktree-mounts.sh
+    // Example: "source=/Users/user/Work/main-repo,target=/main-repo,type=bind,consistency=cached"
+  ],
+  
+  // Environment variables for git wrapper (will be set automatically)
+  "containerEnv": {
+    // These will be populated by the setup script:
+    // "WORKTREE_DETECTED": "true",
+    // "WORKTREE_HOST_MAIN_REPO": "/Users/user/Work/main-repo", 
+    // "WORKTREE_CONTAINER_MAIN_REPO": "/main-repo",
+    // "WORKTREE_NAME": "worktree-name"
+  },
+  
+  // Container configuration
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "claude-user",
+  
+  // VS Code customizations - common across all stacks
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Claude Code (universal)
+        "anthropic.claude-code",
+        
+        // Git (universal)
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        
+        // Development tools (universal)
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vsliveshare.vsliveshare"
+      ],
+      "settings": {
+        // Git configuration (universal)
+        "git.enableSmartCommit": true,
+        "git.confirmSync": false,
+        "git.autofetch": true,
+        
+        // Editor configuration (universal)
+        "editor.formatOnSave": true,
+        
+        // Terminal configuration (universal)
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        
+        // File associations (universal)
+        "files.associations": {
+          "*.env.*": "properties"
+        }
+      }
+    }
+  },
+  
+  // Features and additional configuration
+  "features": {
+    // Claude MCP servers (universal)
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
+      "servers": "serena,context7"
+    },
+    
+    // Add GitHub CLI (universal)
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+  
+  // Lifecycle hooks
+  "onCreateCommand": {
+    "install-deps": "echo 'Base container ready - stack-specific setup will run next'"
+  },
+  
+  // Resource limits (can be overridden by stacks)
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "4gb"
+  }
+}

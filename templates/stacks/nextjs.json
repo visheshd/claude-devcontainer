@@ -1,0 +1,55 @@
+{
+  "name": "Next.js Development",
+  "image": "claude-nextjs:latest",
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // TypeScript/JavaScript specific
+        "ms-vscode.vscode-typescript-next",
+        "esbenp.prettier-vscode",
+        
+        // React/Next.js specific
+        "bradlc.vscode-tailwindcss",
+        "formulahendry.auto-rename-tag"
+      ],
+      "settings": {
+        // TypeScript specific settings
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "typescript.suggest.autoImports": true,
+        
+        // Editor configuration for web development
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": true
+        }
+      }
+    }
+  },
+  
+  // Next.js specific ports
+  "forwardPorts": [3000, 3001, 5173, 8080, 8000, 9000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js Dev Server",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "API Server",
+      "onAutoForward": "silent"
+    }
+  },
+  
+  // Next.js specific features
+  "features": {
+    // Enable Docker inside the devcontainer if needed
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest"
+    }
+  },
+  
+  // Next.js specific lifecycle hooks
+  "onCreateCommand": {
+    "install-deps": "npm install || pnpm install || yarn install || echo 'No package.json found'"
+  },
+  "postCreateCommand": "echo '⚡ Next.js environment ready!' && .devcontainer/configure-git-wrapper.sh"
+}

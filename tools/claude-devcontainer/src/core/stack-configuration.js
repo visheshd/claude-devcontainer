@@ -4,50 +4,28 @@
  */
 
 // Stack configurations
+// Note: Specific configurations (ports, extensions, features) are now handled
+// by the template inheritance system. This only contains metadata.
 export const STACKS = {
   'python-ml': {
     name: 'Python ML',
     description: 'Python with ML libraries, LangChain, Jupyter',
-    image: 'claude-python-ml:latest',
-    ports: [8888], // Jupyter
-    features: ['serena', 'context7', 'langchain-tools', 'vector-db'],
-    extensions: [
-      'ms-python.python',
-      'ms-toolsai.jupyter',
-      'ms-python.black-formatter'
-    ]
+    hostBuilds: false
   },
   'rust-tauri': {
     name: 'Rust Tauri',
     description: 'Rust with Tauri v2 for desktop apps',
-    image: 'claude-rust-tauri:latest',
-    ports: [1420], // Tauri dev server
-    features: ['serena', 'context7', 'rust-analyzer', 'tauri-tools'],
-    extensions: [
-      'rust-lang.rust-analyzer',
-      'tauri-apps.tauri-vscode',
-      'vadimcn.vscode-lldb'
-    ],
     hostBuilds: true
   },
   'nextjs': {
     name: 'Next.js',
     description: 'Next.js with modern web development tools',
-    image: 'claude-nextjs:latest',
-    ports: [3000], // Next.js dev server
-    features: ['serena', 'context7', 'web-dev-tools', 'nextjs-tools'],
-    extensions: [
-      'bradlc.vscode-tailwindcss',
-      'esbenp.prettier-vscode',
-      'ms-vscode.vscode-typescript-next'
-    ]
+    hostBuilds: false
   },
   'custom': {
     name: 'Custom',
     description: 'Base Claude environment for custom configuration',
-    image: 'claude-base:latest',
-    features: ['serena', 'context7'],
-    extensions: []
+    hostBuilds: false
   },
   // Multi-service stacks
   'web-db': {
@@ -55,30 +33,14 @@ export const STACKS = {
     description: 'Next.js with PostgreSQL and Redis',
     template: 'web-db-stack',
     multiService: true,
-    services: ['app', 'db', 'redis'],
-    ports: [3000, 3001, 5432, 6379],
-    features: ['serena', 'context7', 'web-dev-tools', 'nextjs-tools'],
-    extensions: [
-      'bradlc.vscode-tailwindcss',
-      'esbenp.prettier-vscode',
-      'ms-vscode.vscode-typescript-next',
-      'ckolkman.vscode-postgres'
-    ]
+    services: ['app', 'db', 'redis']
   },
   'python-ml-services': {
     name: 'Python ML Services',
     description: 'Python ML with Vector DB and Redis',
     template: 'python-ml-services',
     multiService: true,
-    services: ['app', 'vectordb', 'redis'],
-    ports: [8888, 8000, 6006, 5432, 6379, 8001],
-    features: ['serena', 'context7', 'langchain-tools', 'vector-db'],
-    extensions: [
-      'ms-python.python',
-      'ms-toolsai.jupyter',
-      'ms-python.black-formatter',
-      'ckolkman.vscode-postgres'
-    ]
+    services: ['app', 'vectordb', 'redis']
   },
   'fullstack': {
     name: 'Full-Stack App',
@@ -86,15 +48,6 @@ export const STACKS = {
     template: 'fullstack-nextjs',
     multiService: true,
     services: ['app', 'worker', 'db', 'redis', 'mail', 'storage'],
-    ports: [3000, 3001, 5432, 6379, 8025, 9000, 9001],
-    features: ['serena', 'context7', 'web-dev-tools', 'nextjs-tools'],
-    extensions: [
-      'bradlc.vscode-tailwindcss',
-      'esbenp.prettier-vscode',
-      'ms-vscode.vscode-typescript-next',
-      'ckolkman.vscode-postgres',
-      'prisma.prisma'
-    ],
     profiles: ['full']
   }
 };
@@ -142,7 +95,6 @@ export function getStacksByType(multiService = false) {
  */
 export function validateStackConfig(config) {
   const required = ['name', 'description'];
-  const singleContainerRequired = ['image'];
   const multiServiceRequired = ['template', 'services'];
   
   // Check basic required fields
@@ -152,32 +104,23 @@ export function validateStackConfig(config) {
     }
   }
   
-  // Check type-specific required fields
+  // Check multi-service specific required fields
   if (config.multiService) {
     for (const field of multiServiceRequired) {
       if (!config[field]) {
         throw new Error(`Multi-service stack configuration missing required field: ${field}`);
       }
     }
-  } else {
-    for (const field of singleContainerRequired) {
-      if (!config[field]) {
-        throw new Error(`Single-container stack configuration missing required field: ${field}`);
-      }
+    
+    // Validate services array
+    if (config.services && !Array.isArray(config.services)) {
+      throw new Error('Multi-service stack configuration "services" must be an array');
     }
   }
   
-  // Validate arrays
-  if (config.extensions && !Array.isArray(config.extensions)) {
-    throw new Error('Stack configuration "extensions" must be an array');
-  }
-  
-  if (config.features && !Array.isArray(config.features)) {
-    throw new Error('Stack configuration "features" must be an array');
-  }
-  
-  if (config.ports && !Array.isArray(config.ports)) {
-    throw new Error('Stack configuration "ports" must be an array');
+  // Validate optional fields
+  if (config.hostBuilds !== undefined && typeof config.hostBuilds !== 'boolean') {
+    throw new Error('Stack configuration "hostBuilds" must be a boolean');
   }
   
   return true;

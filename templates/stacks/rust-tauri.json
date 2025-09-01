@@ -1,0 +1,41 @@
+{
+  "name": "Rust Tauri Development",
+  "image": "claude-rust-tauri:latest",
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Rust specific extensions
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb",
+        "serayuzgur.crates",
+        
+        // Tauri specific
+        "tauri-apps.tauri-vscode"
+      ],
+      "settings": {
+        // Rust specific settings
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.cargo.features": "all"
+      }
+    }
+  },
+  
+  // Tauri specific ports
+  "forwardPorts": [1420, 3000, 8080],
+  "portsAttributes": {
+    "1420": {
+      "label": "Tauri Dev Server",
+      "onAutoForward": "notify"
+    }
+  },
+  
+  // Rust/Tauri specific post-create command
+  "postCreateCommand": "cargo --version && echo '🦀 Rust Tauri environment ready!' && .devcontainer/configure-git-wrapper.sh",
+  
+  // Higher resource requirements for Rust compilation
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb"
+  }
+}

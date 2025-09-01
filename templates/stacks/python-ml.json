@@ -1,0 +1,53 @@
+{
+  "name": "Python ML with LangChain",
+  "image": "claude-python-ml:latest",
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Python specific extensions
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "ms-python.black-formatter",
+        "ms-python.pylint",
+        "ms-python.mypy-type-checker"
+      ],
+      "settings": {
+        // Python specific settings
+        "python.defaultInterpreterPath": "/home/claude-user/.venvs/ml/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "jupyter.kernels.filter": [
+          {
+            "path": "/home/claude-user/.venvs/ml/bin/python",
+            "type": "pythonEnvironment"
+          }
+        ]
+      }
+    }
+  },
+  
+  // Python ML specific ports
+  "forwardPorts": [8888],
+  "portsAttributes": {
+    "8888": {
+      "label": "Jupyter Lab",
+      "onAutoForward": "notify"
+    }
+  },
+  
+  // Python ML specific MCP servers
+  "features": {
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
+      "servers": "serena,context7,langchain-tools,vector-db,anthropic-api"
+    }
+  },
+  
+  // Python ML specific post-create command
+  "postCreateCommand": "uv sync && echo '🐍 Python ML environment ready!' && .devcontainer/configure-git-wrapper.sh",
+  
+  // Environment variables specific to Python ML
+  "containerEnv": {
+    "JUPYTER_ENABLE_LAB": "yes",
+    "PYTHONPATH": "/workspace"
+  }
+}

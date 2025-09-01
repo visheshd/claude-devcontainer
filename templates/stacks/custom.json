@@ -1,0 +1,7 @@
+{
+  "name": "Custom Development Environment",
+  "image": "claude-base:latest",
+  
+  // Minimal custom stack - just uses base image with universal features
+  "postCreateCommand": "echo '🔧 Custom environment ready!' && .devcontainer/configure-git-wrapper.sh"
+}

@@ -69,6 +69,18 @@ code .
 # Command Palette: "Dev Containers: Reopen in Container"
 ```
 
+### 6. Fix Existing DevContainers (Optional)
+```bash
+# If you have old devcontainer configs that lack worktree detection
+cd existing-project
+
+# Check what needs upgrading
+claude-devcontainer check
+
+# Upgrade to latest with worktree detection
+claude-devcontainer migrate
+```
+
 ### CLI Commands
 
 ```bash
@@ -78,7 +90,7 @@ claude-devcontainer init
 # Analyze existing DevContainer configuration
 claude-devcontainer check
 
-# Upgrade existing DevContainer to latest features
+# Upgrade existing DevContainer to latest features (includes worktree detection)
 claude-devcontainer migrate
 
 # Detect project type
@@ -315,10 +327,12 @@ claude-devcontainer init -s custom
 ## 🚀 Features & Capabilities
 
 ### Git Worktree Integration
-- **Atomic Operations**: All git worktree operations are transaction-safe
-- **Automatic Setup**: DevContainers automatically configure worktree mounts
+- **Universal Detection**: Every devcontainer automatically detects main repos vs. worktrees
+- **Template Inheritance**: Single source of truth ensures all devcontainers get worktree support
+- **Automatic Migration**: Old devcontainers can be upgraded with `claude-devcontainer migrate`
+- **Zero Configuration**: Works seamlessly without manual setup in any git repository
 - **Cross-Platform**: Full compatibility across Apple Silicon, Intel, and Linux
-- **Seamless Management**: Automated worktree detection and configuration
+- **Script Integration**: Git wrapper handles atomic worktree operations transparently
 
 ### Optimized Performance  
 - **Smart Layering**: Optimized Docker images with intelligent caching
@@ -327,10 +341,12 @@ claude-devcontainer init -s custom
 - **Platform Native**: Architecture-specific optimizations for your system
 
 ### DevContainer Features
+- **Template Inheritance**: Universal features (worktree, MCP, git wrapper) applied to all stacks
+- **Automatic Migration**: Upgrade old devcontainers with `migrate` command to get latest features
 - **MCP Integration**: Built-in serena and context7 servers with extensible configuration
-- **Upgrade Tools**: Automated migration and configuration analysis tools
+- **Smart Generation**: Every `init` includes worktree detection and universal features by default
 - **Stack Templates**: Pre-configured environments for Python ML, Rust Tauri, Next.js
-- **Custom Extensions**: Easy customization with your own Docker images
+- **Custom Extensions**: Easy customization with your own Docker images while keeping universal features
 
 ### Claude Integration
 - **User Data Mounting**: Your `~/.claude` directory automatically mounted and persistent
