@@ -488,3 +488,7 @@ chmod +x dockerfiles/*/build.sh
 
 For more help, see [Building Images Locally](#-building-images-locally) section above.
 
+## 🙏 Acknowledgments
+
+This project was inspired by [@VishalJ99's claude-docker](https://github.com/VishalJ99/claude-docker) work. While originally forked, it evolved into a DevContainer-focused solution for enhanced development workflows.
+
