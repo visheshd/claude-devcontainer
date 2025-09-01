@@ -35,19 +35,38 @@ export async function handleInit(options = {}) {
         }
         
         if (!options.noInteraction) {
+          // Always show at least 5 popular options, with detected stacks prioritized
+          const popularStacks = ['nextjs', 'python-ml', 'rust-tauri', 'fullstack', 'custom'];
+          const allAvailable = getAvailableStacks();
+          
+          // Create choices: detected stacks first, then popular ones not already detected
+          const detectedChoices = detectedStacks.map(stack => {
+            const config = getStack(stack);
+            return {
+              name: `✅ ${config.name} - ${config.description} (detected)`,
+              value: stack
+            };
+          });
+          
+          const additionalChoices = popularStacks
+            .filter(stack => !detectedStacks.includes(stack) && allAvailable.includes(stack))
+            .slice(0, 5 - detectedStacks.length) // Ensure we have at least 5 total
+            .map(stack => {
+              const config = getStack(stack);
+              return {
+                name: `${config.name} - ${config.description}`,
+                value: stack
+              };
+            });
+          
           const { selectedStack } = await inquirer.prompt([
             {
               type: 'list',
               name: 'selectedStack',
               message: 'Select a development stack:',
               choices: [
-                ...detectedStacks.map(stack => {
-                  const config = getStack(stack);
-                  return {
-                    name: `${config.name} - ${config.description}`,
-                    value: stack
-                  };
-                }),
+                ...detectedChoices,
+                ...additionalChoices,
                 { name: 'Browse all stacks...', value: 'browse' }
               ]
             }
