@@ -192,8 +192,14 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// Run if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run if this file is executed directly (but not when imported by bin wrapper)
+// The bin wrapper will explicitly call the main function
+const isDirectExecution = process.argv[1] && (
+  process.argv[1].endsWith('src/index.js') || 
+  process.argv[1].endsWith('/index.js')
+);
+
+if (isDirectExecution) {
   main();
 }
 

@@ -1,4 +1,12 @@
 #!/usr/bin/env node
 
 // Simple wrapper that runs the main CLI
-import '../src/index.js';
+import('../src/index.js').then(module => {
+  // Call the default export (main function)
+  if (module.default && typeof module.default === 'function') {
+    module.default();
+  }
+}).catch(error => {
+  console.error('Error starting CLI:', error);
+  process.exit(1);
+});
