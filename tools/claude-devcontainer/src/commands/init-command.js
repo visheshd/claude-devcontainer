@@ -25,7 +25,7 @@ export async function handleInit(options = {}) {
     // Auto-detect project if no stack specified
     if (!stackId && !options.noInteraction) {
       const detectedStacks = detector.detectProjectType();
-      const complexity = detector.getProjectComplexity();
+      const complexity = detector.getProjectComplexity('.');
       
       if (detectedStacks.length > 0) {
         console.log(chalk.green(`✅ Detected project types: ${detectedStacks.join(', ')}`));
@@ -112,7 +112,7 @@ export async function handleInit(options = {}) {
           type: 'confirm',
           name: 'useMultiService',
           message: `This stack supports multi-service mode with ${stackConfig.services?.join(', ') || 'multiple services'}. Use multi-service setup?`,
-          default: detector.shouldUseMultiService() || stackConfig.multiService
+          default: detector.shouldUseMultiService('.') || stackConfig.multiService
         }
       ]);
       multiService = useMultiService;

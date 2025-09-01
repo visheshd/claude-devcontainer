@@ -68,11 +68,11 @@ export class ProjectDetector {
           return ['nextjs'];
         }
       } else {
-        return ['nodejs'];
+        return ['custom']; // Generic Node.js falls back to custom stack
       }
     } catch (error) {
       console.warn(`Warning: Could not parse package.json: ${error.message}`);
-      return ['nodejs']; // Fallback to basic Node.js
+      return ['custom']; // Fallback to custom stack
     }
   }
 
@@ -261,7 +261,7 @@ export class ProjectDetector {
    * @param {string} projectPath - Project directory path
    * @returns {number} Complexity score
    */
-  getProjectComplexity(projectPath) {
+  getProjectComplexity(projectPath = '.') {
     let score = 0;
     
     if (this.detectDatabaseUsage(projectPath)) score += 3;
@@ -282,7 +282,7 @@ export class ProjectDetector {
    * @param {string} projectPath - Project directory path
    * @returns {boolean} True if multi-service is recommended
    */
-  shouldUseMultiService(projectPath) {
+  shouldUseMultiService(projectPath = '.') {
     return this.getProjectComplexity(projectPath) >= 4;
   }
 }
