@@ -25,14 +25,7 @@ A comprehensive DevContainer-based development environment for local development
 
 ## 🚀 Quick Start
 
-### 1. Build Docker Images (Required First Step)
-```bash
-# Build all images locally (required before first use)
-chmod +x build-all-images.sh
-./build-all-images.sh --rebuild
-```
-
-### 2. Install CLI Tool
+### 1. Install CLI Tool
 ```bash
 # Install the CLI tool locally (one-time setup)
 cd tools/claude-devcontainer
@@ -40,11 +33,34 @@ npm install
 npm link
 ```
 
-### 3. Create and Use DevContainer
+### 2. Choose Your Development Stack
 ```bash
-# Create new project with DevContainer
-claude-devcontainer init
+# See available stacks
+claude-devcontainer stacks
 
+# Create new project with DevContainer (will prompt for stack selection)
+claude-devcontainer init
+```
+
+### 3. Build Required Images
+The CLI will guide you to build only the images you need:
+
+```bash
+# Example: For Python ML development
+./build-all-images.sh --images claude-base,python-ml
+
+# Example: For Next.js development  
+./build-all-images.sh --images claude-base,nextjs
+
+# Example: For Rust Tauri development
+./build-all-images.sh --images claude-base,rust-tauri
+
+# Or build all images if you plan to work with multiple stacks
+./build-all-images.sh --rebuild
+```
+
+### 4. Open in VS Code
+```bash
 # Open in VS Code
 code .
 # Command Palette: "Dev Containers: Reopen in Container"
@@ -182,17 +198,28 @@ claude-devcontainer compose fullstack-nextjs
 
 ### Prerequisites
 - Docker installed and running
-- At least 4GB free disk space for all images
+- At least 1-2GB free disk space per stack
 - Claude Code already authenticated on your host system
 
-### Quick Build
+### Recommended: Build Only What You Need
 ```bash
-# Build all images with local tags
+# Build base image + your chosen stack (saves time & disk space)
 chmod +x build-all-images.sh
-./build-all-images.sh --rebuild
 
-# Or build specific images
+# Python ML stack (~2GB total)
 ./build-all-images.sh --images claude-base,python-ml
+
+# Next.js stack (~1.5GB total) 
+./build-all-images.sh --images claude-base,nextjs
+
+# Rust Tauri stack (~2.5GB total)
+./build-all-images.sh --images claude-base,rust-tauri
+```
+
+### Alternative: Build All Images
+```bash
+# Build all images if working with multiple stacks (~4GB total)
+./build-all-images.sh --rebuild
 ```
 
 ### Individual Image Builds
@@ -315,11 +342,11 @@ claude-devcontainer init -s custom
 # List available Claude images
 docker images | grep claude
 
-# Expected output:
+# Expected output (will vary based on what you built):
 # claude-base          latest    abc123...
-# claude-python-ml     latest    def456...
-# claude-rust-tauri    latest    ghi789...
-# claude-nextjs        latest    jkl012...
+# claude-python-ml     latest    def456...  (if you built Python ML)
+# claude-rust-tauri    latest    ghi789...  (if you built Rust Tauri)
+# claude-nextjs        latest    jkl012...  (if you built Next.js)
 ```
 
 ### 2. Test CLI Tool
@@ -419,20 +446,26 @@ code . && # "Dev Containers: Reopen in Container"
 
 **"Error: image not found" when opening DevContainer**
 ```bash
-# Solution: Build images first (required)
-./build-all-images.sh --rebuild
+# Solution: Build the required images for your stack
+# Check what stack your DevContainer is configured for:
+cat .devcontainer/devcontainer.json | grep image
+
+# Then build the required images:
+./build-all-images.sh --images claude-base,python-ml    # for Python ML
+./build-all-images.sh --images claude-base,nextjs       # for Next.js  
+./build-all-images.sh --images claude-base,rust-tauri   # for Rust Tauri
 ```
 
 **DevContainer fails to start with missing image**
 ```bash
-# Verify images were built successfully
+# Verify the specific images you need were built successfully
 docker images | grep claude
 
-# Expected output should show:
+# You should see claude-base and your chosen stack image:
 # claude-base          latest    ...
-# claude-python-ml     latest    ... 
-# claude-rust-tauri    latest    ...
-# claude-nextjs        latest    ...
+# claude-python-ml     latest    ... (for Python ML)
+# OR claude-nextjs     latest    ... (for Next.js)
+# OR claude-rust-tauri latest    ... (for Rust Tauri)
 ```
 
 **CLI tool not found after npm link**
