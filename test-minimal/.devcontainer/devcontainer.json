@@ -1,0 +1,4 @@
+{
+  "name": "Minimal Configuration",
+  "image": "claude-docker:latest"
+}

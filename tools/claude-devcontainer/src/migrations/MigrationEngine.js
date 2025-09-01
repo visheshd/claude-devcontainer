@@ -57,7 +57,7 @@ export class MigrationEngine {
     }
 
     // Resolve dependencies
-    const orderedChangeSets = this.registry.resolveDependencies(changeSets);
+    const orderedChangeSets = await this.registry.resolveDependencies(changeSets);
 
     const previews = [];
     let currentConfig = JSON.parse(JSON.stringify(config)); // Deep clone
@@ -126,7 +126,7 @@ export class MigrationEngine {
     }
 
     // Resolve dependencies
-    const orderedChangeSets = this.registry.resolveDependencies(changeSets);
+    const orderedChangeSets = await this.registry.resolveDependencies(changeSets);
 
     // Interactive selection if requested
     if (interactive && !autoApprove && !dryRun) {

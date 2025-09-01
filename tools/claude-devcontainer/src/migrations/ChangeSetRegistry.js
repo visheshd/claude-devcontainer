@@ -93,11 +93,18 @@ export class ChangeSetRegistry {
    * @returns {Array<BaseChangeSet>} - Ordered change sets
    * @throws {Error} - If circular dependencies or conflicts are detected
    */
-  resolveDependencies(changeSets) {
+  async resolveDependencies(changeSets) {
     const ordered = [];
     const visiting = new Set();
     const visited = new Set();
+    const includeInResult = new Set(changeSets.map(cs => cs.id));
+    
+    // Start with the provided change sets
     const changeSetMap = new Map(changeSets.map(cs => [cs.id, cs]));
+    
+    // Get all available change sets for dependency lookup
+    const allChangeSets = await this.getAllChangeSets();
+    const allChangeSetMap = new Map(allChangeSets.map(cs => [cs.id, cs]));
 
     // Check for conflicts first
     for (const changeSet of changeSets) {
@@ -118,7 +125,8 @@ export class ChangeSetRegistry {
         return;
       }
 
-      const changeSet = changeSetMap.get(changeSetId);
+      // Look for the changeset in the provided list first, then in all changesets
+      let changeSet = changeSetMap.get(changeSetId) || allChangeSetMap.get(changeSetId);
       if (!changeSet) {
         throw new Error(`Dependency not found: ${changeSetId}`);
       }
@@ -132,7 +140,11 @@ export class ChangeSetRegistry {
 
       visiting.delete(changeSetId);
       visited.add(changeSetId);
-      ordered.push(changeSet);
+      
+      // Only include in the result if it was in the original list or actually needed
+      if (includeInResult.has(changeSetId)) {
+        ordered.push(changeSet);
+      }
     };
 
     // Visit all change sets
