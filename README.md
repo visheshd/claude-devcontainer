@@ -37,13 +37,10 @@ npm link
 ```bash
 # See available stacks
 claude-devcontainer stacks
-
-# Create new project with DevContainer (will prompt for stack selection)
-claude-devcontainer init
 ```
 
 ### 3. Build Required Images
-The CLI will guide you to build only the images you need:
+Build only the images you need (saves time & disk space):
 
 ```bash
 # Example: For Python ML development
@@ -59,7 +56,13 @@ The CLI will guide you to build only the images you need:
 ./build-all-images.sh --rebuild
 ```
 
-### 4. Open in VS Code
+### 4. Create DevContainer
+```bash
+# Create new project with DevContainer (will prompt for stack selection)
+claude-devcontainer init
+```
+
+### 5. Open in VS Code
 ```bash
 # Open in VS Code
 code .
