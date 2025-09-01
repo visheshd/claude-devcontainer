@@ -21,6 +21,8 @@ A comprehensive DevContainer-based development environment for local development
 ✅ **Cross-Platform**: Full compatibility across Apple Silicon, Intel, and Linux  
 ✅ **SSH Host Builds**: Native builds on host system for optimal performance  
 
+<img src="demo.gif" alt="Claude DevContainer Demo" loading="lazy" width="100%">
+
 ## 🚀 Quick Start
 
 ### 1. Build Docker Images (Required First Step)
