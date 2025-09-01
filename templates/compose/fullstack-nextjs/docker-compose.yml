@@ -1,0 +1,135 @@
+services:
+  app:
+    image: claude-nextjs:latest
+    volumes:
+      - ..:/workspace:cached
+      - claude-cache:/home/claude-user/.claude-cache:delegated
+    command: sleep infinity
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fullstackdb
+      - REDIS_URL=redis://redis:6379
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=development-secret-change-in-production
+      - EMAIL_FROM=noreply@example.com
+      - EMAIL_SERVER_URL=smtp://mail:1025
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    working_dir: /workspace
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '--quiet', 'http://127.0.0.1:3000']
+      interval: 90s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Background worker service
+  worker:
+    image: claude-nextjs:latest
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fullstackdb
+      - REDIS_URL=redis://redis:6379
+      - WORKER_CONCURRENCY=2
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    working_dir: /workspace
+    profiles: ["full"]
+
+  # Database migrations service
+  migrations:
+    image: claude-nextjs:latest
+    volumes:
+      - ..:/workspace:cached
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fullstackdb
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ['sh', '-c', 'npm run db:migrate || pnpm db:migrate || echo "No migration command found"']
+    working_dir: /workspace
+    restart: 'no'
+
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/db/init:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=fullstackdb
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Email testing service (Mailhog)
+  mail:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    profiles: ["full", "mail"]
+
+  # Optional: S3-compatible storage (MinIO)
+  storage:
+    image: minio/minio:latest
+    restart: unless-stopped
+    volumes:
+      - minio-data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Web Console
+    profiles: ["full", "storage"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  postgres-data:
+  redis-data:
+  claude-cache:
+  minio-data:

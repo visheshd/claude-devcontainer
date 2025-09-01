@@ -1,0 +1,109 @@
+{
+  "name": "Python ML Services Stack (Python + Vector DB + Cache)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/miniconda3/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.formatting.provider": "black",
+        "python.linting.flake8Enabled": true,
+        "jupyter.askForKernelRestart": false,
+        "jupyter.alwaysTrustNotebooks": true,
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "git.enableSmartCommit": true,
+        "git.confirmSync": false,
+        "git.autofetch": true,
+        "files.associations": {
+          "*.py": "python",
+          "*.ipynb": "jupyter",
+          "*.yaml": "yaml",
+          "*.yml": "yaml"
+        }
+      },
+      "extensions": [
+        "anthropic.claude-code",
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "ms-python.pylint",
+        "ms-python.flake8",
+        "ms-toolsai.jupyter",
+        "ms-toolsai.jupyter-keymap",
+        "ms-toolsai.jupyter-renderers",
+        "charliermarsh.ruff",
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        "ckolkman.vscode-postgres",
+        "ms-vscode.vscode-docker",
+        "ms-vscode.remote-containers"
+      ]
+    }
+  },
+
+  "forwardPorts": [8888, 8000, 6006, 5432, 6379, 8001],
+  "portsAttributes": {
+    "8888": {
+      "label": "Jupyter Lab",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "Python API Server",
+      "onAutoForward": "silent"
+    },
+    "6006": {
+      "label": "TensorBoard",
+      "onAutoForward": "silent"
+    },
+    "5432": {
+      "label": "PostgreSQL + pgvector",
+      "onAutoForward": "silent"
+    },
+    "6379": {
+      "label": "Redis",
+      "onAutoForward": "silent"
+    },
+    "8001": {
+      "label": "Redis Insights",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "features": {
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
+      "servers": "serena,context7,langchain-tools,vector-db"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+
+  "postCreateCommand": "uv sync || pip install -r requirements.txt || echo 'No requirements found'",
+
+  "remoteUser": "claude-user",
+
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+  ],
+
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+
+  "containerEnv": {
+    "JUPYTER_ENABLE_LAB": "yes",
+    "PYTHONPATH": "/workspace"
+  }
+}

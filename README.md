@@ -65,7 +65,79 @@ claude-devcontainer detect
 
 # List available development stacks
 claude-devcontainer stacks
+
+# Multi-service specific commands
+claude-devcontainer services              # List multi-service templates
+claude-devcontainer compose <template>    # Initialize with specific template
 ```
+
+## 🐳 Multi-Service Container Support
+
+The Claude DevContainer system now supports **both single-container and multi-service** setups to match your project's complexity:
+
+### When to Use Multi-Service
+- **Database Required**: Projects using PostgreSQL, MongoDB, or other databases
+- **Caching Needed**: Applications requiring Redis or similar caching
+- **Background Jobs**: Projects with queues, workers, or scheduled tasks
+- **Full-Stack Apps**: Complete web applications with multiple components
+- **Microservices**: Multi-service architectures
+
+### Multi-Service vs Single-Container
+
+| Aspect | Single Container | Multi-Service |
+|--------|------------------|---------------|
+| **Setup** | Simple, one image | Docker Compose with multiple services |
+| **VS Code Connection** | Direct to container | Connects to primary `app` service |
+| **Use Case** | Simple projects, prototyping | Complex apps, full-stack development |
+| **Services** | All-in-one | Specialized services (DB, cache, workers) |
+| **Resource Usage** | Lower | Higher (multiple containers) |
+
+### Multi-Service Architecture
+
+```
+┌─────────────────┐    ┌──────────────────┐
+│   VS Code       │────│  Primary Service │ ← VS Code connects here
+│   (Local)       │    │  "app"           │   (Claude Code + dev tools)
+└─────────────────┘    │  - Claude Code   │
+                       │  - Source code   │
+                       │  - Build tools   │
+                       └─────────┬────────┘
+                                 │ Docker network
+                                 │
+                    ┌────────────┼────────────┐
+                    │            │            │
+              ┌─────▼────┐ ┌─────▼────┐ ┌────▼─────┐
+              │PostgreSQL│ │ Redis    │ │Background│
+              │Service   │ │Service   │ │Worker    │
+              └──────────┘ └──────────┘ └──────────┘
+```
+
+### Quick Start Examples
+
+**Web Application with Database:**
+```bash
+claude-devcontainer init --stack web-db
+# Creates Next.js + PostgreSQL + Redis setup
+```
+
+**ML Application with Services:**
+```bash
+claude-devcontainer compose python-ml-services
+# Creates Python ML + Vector DB + Redis Stack
+```
+
+**Complete Full-Stack Application:**
+```bash
+claude-devcontainer compose fullstack-nextjs
+# Creates comprehensive setup with all services
+```
+
+### Backward Compatibility
+
+**Existing projects continue to work unchanged** - no migration required:
+- Single-container setups remain fully supported
+- All existing CLI commands work as before
+- Migration to multi-service is optional and user-initiated
 
 ## 🏗️ Architecture
 
@@ -87,12 +159,22 @@ claude-devcontainer stacks
 
 ## 📋 Available Stacks (Local Builds)
 
+### Single Container Stacks
+
 | Stack | Local Image Tag | Use Case | Key Features |
 |-------|-----------------|----------|--------------|
 | **Python ML** | `claude-python-ml:latest` *(local)* | AI/ML Development | Python 3.11, Jupyter, LangChain, PyTorch, Vector DBs |
 | **Rust Tauri** | `claude-rust-tauri:latest` *(local)* | Desktop Apps | Rust toolchain, Tauri v2, Cross-compilation, GUI libs |
 | **Next.js** | `claude-nextjs:latest` *(local)* | Web Development | Node.js, pnpm, TypeScript, Tailwind, Modern web tools |
 | **Custom** | `claude-base:latest` *(local)* | General Purpose | Base environment for custom configurations |
+
+### Multi-Service Stacks
+
+| Stack | Template | Services | Use Case | Key Features |
+|-------|----------|----------|----------|--------------|
+| **Web + Database** | `web-db-stack` | App, PostgreSQL, Redis | Web apps with database | Next.js, PostgreSQL, Redis, full-stack development |
+| **Python ML Services** | `python-ml-services` | App, Vector DB, Redis | ML applications | Python ML, pgvector, Redis Stack, Jupyter, model serving |
+| **Full-Stack App** | `fullstack-nextjs` | App, Worker, DB, Redis, Mail, Storage | Complete web applications | Next.js, background jobs, email testing, S3 storage |
 
 ## 🔨 Building Images Locally
 

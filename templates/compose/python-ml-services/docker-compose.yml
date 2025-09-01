@@ -1,0 +1,90 @@
+services:
+  app:
+    image: claude-python-ml:latest
+    volumes:
+      - ..:/workspace:cached
+      - claude-cache:/home/claude-user/.claude-cache:delegated
+      - jupyter-data:/home/claude-user/.jupyter:delegated
+    command: sleep infinity
+    environment:
+      - PYTHONPATH=/workspace
+      - DATABASE_URL=postgresql://postgres:postgres@vectordb:5432/mldb
+      - REDIS_URL=redis://redis:6379
+      - JUPYTER_ENABLE_LAB=yes
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      vectordb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8888:8888"  # Jupyter
+      - "8000:8000"  # FastAPI/Flask
+      - "6006:6006"  # TensorBoard
+    working_dir: /workspace
+    healthcheck:
+      test: ['CMD', 'python', '-c', 'import sys; sys.exit(0)']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  vectordb:
+    image: pgvector/pgvector:pg15
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=mldb
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis/redis-stack:latest
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    environment:
+      - REDIS_ARGS=--appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+      - "8001:8001"  # Redis Insights
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Optional: Separate service for ML model serving
+  model-server:
+    image: claude-python-ml:latest
+    volumes:
+      - ..:/workspace:cached
+      - model-cache:/models:delegated
+    command: sleep infinity
+    environment:
+      - PYTHONPATH=/workspace
+      - MODEL_PATH=/models
+      - DATABASE_URL=postgresql://postgres:postgres@vectordb:5432/mldb
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - vectordb
+      - redis
+    ports:
+      - "8002:8002"  # Model API
+    working_dir: /workspace
+    profiles: ["full"]  # Optional service, enable with --profile full
+
+volumes:
+  postgres-data:
+  redis-data:
+  claude-cache:
+  jupyter-data:
+  model-cache:

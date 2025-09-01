@@ -82,6 +82,54 @@ const STACKS = {
     image: 'claude-base:latest',
     features: ['serena', 'context7'],
     extensions: []
+  },
+  // Multi-service stacks
+  'web-db': {
+    name: 'Web + Database',
+    description: 'Next.js with PostgreSQL and Redis',
+    template: 'web-db-stack',
+    multiService: true,
+    services: ['app', 'db', 'redis'],
+    ports: [3000, 3001, 5432, 6379],
+    features: ['serena', 'context7', 'web-dev-tools', 'nextjs-tools'],
+    extensions: [
+      'bradlc.vscode-tailwindcss',
+      'esbenp.prettier-vscode',
+      'ms-vscode.vscode-typescript-next',
+      'ckolkman.vscode-postgres'
+    ]
+  },
+  'python-ml-services': {
+    name: 'Python ML Services',
+    description: 'Python ML with Vector DB and Redis',
+    template: 'python-ml-services',
+    multiService: true,
+    services: ['app', 'vectordb', 'redis'],
+    ports: [8888, 8000, 6006, 5432, 6379, 8001],
+    features: ['serena', 'context7', 'langchain-tools', 'vector-db'],
+    extensions: [
+      'ms-python.python',
+      'ms-toolsai.jupyter',
+      'ms-python.black-formatter',
+      'ckolkman.vscode-postgres'
+    ]
+  },
+  'fullstack': {
+    name: 'Full-Stack App',
+    description: 'Complete web app with background services',
+    template: 'fullstack-nextjs',
+    multiService: true,
+    services: ['app', 'worker', 'db', 'redis', 'mail', 'storage'],
+    ports: [3000, 3001, 5432, 6379, 8025, 9000, 9001],
+    features: ['serena', 'context7', 'web-dev-tools', 'nextjs-tools'],
+    extensions: [
+      'bradlc.vscode-tailwindcss',
+      'esbenp.prettier-vscode',
+      'ms-vscode.vscode-typescript-next',
+      'ckolkman.vscode-postgres',
+      'prisma.prisma'
+    ],
+    profiles: ['full']
   }
 };
 
@@ -94,11 +142,29 @@ class DevContainerGenerator {
   detectProjectType(projectPath = '.') {
     const detectedStacks = [];
     
-    // Check for project indicators
+    // Check for existing docker-compose configuration
+    if (fs.existsSync(path.join(projectPath, 'docker-compose.yml')) ||
+        fs.existsSync(path.join(projectPath, 'docker-compose.yaml'))) {
+      detectedStacks.push('existing-compose');
+    }
+    
+    // Check for multi-service indicators
+    const hasDatabase = this.detectDatabaseUsage(projectPath);
+    const hasCache = this.detectCacheUsage(projectPath);
+    const hasBackgroundJobs = this.detectBackgroundJobs(projectPath);
+    
+    // Check for project type indicators
     if (fs.existsSync(path.join(projectPath, 'package.json'))) {
       const packageJson = fs.readJsonSync(path.join(projectPath, 'package.json'));
       if (packageJson.dependencies?.next || packageJson.devDependencies?.next) {
-        detectedStacks.push('nextjs');
+        // Suggest multi-service for Next.js projects with complex needs
+        if (hasDatabase && hasCache) {
+          detectedStacks.push('fullstack');
+        } else if (hasDatabase) {
+          detectedStacks.push('web-db');
+        } else {
+          detectedStacks.push('nextjs');
+        }
       } else {
         detectedStacks.push('nodejs');
       }
@@ -123,13 +189,76 @@ class DevContainerGenerator {
       });
       
       if (hasMLIndicators) {
-        detectedStacks.push('python-ml');
+        // Suggest ML services for ML projects with complex needs
+        if (hasDatabase || hasCache) {
+          detectedStacks.push('python-ml-services');
+        } else {
+          detectedStacks.push('python-ml');
+        }
       } else {
         detectedStacks.push('python');
       }
     }
     
     return detectedStacks;
+  }
+
+  detectDatabaseUsage(projectPath) {
+    // Check for database-related files and dependencies
+    const indicators = [
+      'prisma/schema.prisma',
+      'drizzle.config.ts',
+      'drizzle.config.js',
+      'migrations/',
+      'database/',
+      'sql/',
+      '.env'
+    ];
+    
+    // Check files
+    const hasDbFiles = indicators.some(file => 
+      fs.existsSync(path.join(projectPath, file))
+    );
+    
+    if (hasDbFiles) return true;
+    
+    // Check package.json dependencies
+    if (fs.existsSync(path.join(projectPath, 'package.json'))) {
+      const packageJson = fs.readJsonSync(path.join(projectPath, 'package.json'));
+      const dbLibs = ['prisma', 'drizzle-orm', 'pg', 'mysql2', 'sqlite3', 'mongoose', 'sequelize', 'typeorm'];
+      const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+      return dbLibs.some(lib => lib in allDeps);
+    }
+    
+    return false;
+  }
+
+  detectCacheUsage(projectPath) {
+    // Check for Redis/cache indicators
+    if (fs.existsSync(path.join(projectPath, 'package.json'))) {
+      const packageJson = fs.readJsonSync(path.join(projectPath, 'package.json'));
+      const cacheLibs = ['redis', 'ioredis', 'node-cache', 'memory-cache'];
+      const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+      return cacheLibs.some(lib => lib in allDeps);
+    }
+    
+    return false;
+  }
+
+  detectBackgroundJobs(projectPath) {
+    // Check for background job indicators
+    if (fs.existsSync(path.join(projectPath, 'package.json'))) {
+      const packageJson = fs.readJsonSync(path.join(projectPath, 'package.json'));
+      const jobLibs = ['bull', 'bullmq', 'agenda', 'bee-queue', 'kue'];
+      const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+      if (jobLibs.some(lib => lib in allDeps)) return true;
+    }
+    
+    // Check for common background job patterns
+    const jobPatterns = ['worker.js', 'worker.ts', 'jobs/', 'queue/', 'workers/'];
+    return jobPatterns.some(pattern => 
+      fs.existsSync(path.join(projectPath, pattern))
+    );
   }
 
   async promptForStack() {
@@ -271,6 +400,69 @@ class DevContainerGenerator {
     if (postCreateCommands.length > 0) {
       config.postCreateCommand = postCreateCommands.join(' && ');
     }
+
+    return config;
+  }
+
+  generateComposeConfig(stack, options) {
+    const stackConfig = STACKS[stack];
+    
+    if (!stackConfig.multiService) {
+      throw new Error(`Stack ${stack} is not configured for multi-service mode`);
+    }
+
+    const config = {
+      name: options.name || `${stackConfig.name} Multi-Service Development`,
+      dockerComposeFile: 'docker-compose.yml',
+      service: 'app',
+      workspaceFolder: '/workspace'
+    };
+
+    // Add VS Code customizations
+    if (stackConfig.extensions && stackConfig.extensions.length > 0) {
+      config.customizations = {
+        vscode: {
+          extensions: [
+            'anthropic.claude-code',
+            ...stackConfig.extensions
+          ],
+          settings: {
+            'editor.formatOnSave': true,
+            'git.enableSmartCommit': true,
+            'git.confirmSync': false,
+            'git.autofetch': true,
+            'terminal.integrated.defaultProfile.linux': 'zsh'
+          }
+        }
+      };
+    }
+
+    // Add port forwarding
+    if (stackConfig.ports && stackConfig.ports.length > 0) {
+      config.forwardPorts = stackConfig.ports;
+    }
+
+    // Add features for MCP servers
+    if (stackConfig.features && stackConfig.features.length > 0) {
+      config.features = {
+        'ghcr.io/visheshd/claude-devcontainer/claude-mcp:1': {
+          servers: stackConfig.features.join(',')
+        }
+      };
+    }
+
+    // Add Claude directory mount
+    config.mounts = [
+      'source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind'
+    ];
+
+    // Add resource requirements
+    config.hostRequirements = {
+      cpus: stackConfig.services && stackConfig.services.length > 3 ? 4 : 2,
+      memory: stackConfig.services && stackConfig.services.length > 3 ? '8gb' : '4gb'
+    };
+
+    config.remoteUser = 'claude-user';
 
     return config;
   }
@@ -445,7 +637,11 @@ class DevContainerGenerator {
       }
 
       // Create configuration files
-      await this.writeDevContainerFiles(config);
+      if (stackConfig.multiService) {
+        await this.writeComposeFiles(stack, config);
+      } else {
+        await this.writeDevContainerFiles(config);
+      }
       
       console.log(chalk.green.bold('\n🎉 DevContainer setup complete!\n'));
       console.log(chalk.blue('Next steps:'));
@@ -461,6 +657,14 @@ class DevContainerGenerator {
   }
 
   generateBasicConfig(stack, stackConfig) {
+    // Use multi-service config for multi-service stacks
+    if (stackConfig.multiService) {
+      return this.generateComposeConfig(stack, { 
+        name: `${path.basename(process.cwd())} (${stackConfig.name})`
+      });
+    }
+    
+    // Single-container configuration
     const config = {
       name: `${path.basename(process.cwd())} (${stackConfig.name})`,
       image: stackConfig.image,
@@ -489,6 +693,43 @@ class DevContainerGenerator {
   async writeDevContainerFiles(config) {
     await fs.ensureDir('.devcontainer');
     await fs.writeJson('.devcontainer/devcontainer.json', config, { spaces: 2 });
+  }
+
+  async writeComposeFiles(stack, config) {
+    const stackConfig = STACKS[stack];
+    const templatePath = path.join(__dirname, '..', '..', '..', 'templates', 'compose', stackConfig.template);
+    
+    // Ensure the template exists
+    if (!fs.existsSync(templatePath)) {
+      throw new Error(`Template not found: ${templatePath}`);
+    }
+    
+    // Create .devcontainer directory
+    await fs.ensureDir('.devcontainer');
+    
+    // Copy template files to project root
+    const templateFiles = ['docker-compose.yml', '.env.example'];
+    for (const file of templateFiles) {
+      const templateFile = path.join(templatePath, file);
+      if (fs.existsSync(templateFile)) {
+        await fs.copy(templateFile, file);
+      }
+    }
+    
+    // Copy docker directory if it exists
+    const dockerDir = path.join(templatePath, 'docker');
+    if (fs.existsSync(dockerDir)) {
+      await fs.copy(dockerDir, 'docker');
+    }
+    
+    // Write devcontainer.json
+    await fs.writeJson('.devcontainer/devcontainer.json', config, { spaces: 2 });
+    
+    // Copy template README to .devcontainer for reference
+    const templateReadme = path.join(templatePath, 'README.md');
+    if (fs.existsSync(templateReadme)) {
+      await fs.copy(templateReadme, '.devcontainer/TEMPLATE-README.md');
+    }
   }
 
   async migrate(options = {}) {
@@ -741,6 +982,103 @@ export function handleStacks() {
   });
 }
 
+export function handleServices() {
+  console.log(chalk.blue.bold('Available Multi-Service Templates:\n'));
+  
+  Object.entries(STACKS)
+    .filter(([_, config]) => config.multiService)
+    .forEach(([key, config]) => {
+      console.log(chalk.green(`${config.name} (${key})`));
+      console.log(chalk.gray(`  ${config.description}`));
+      console.log(chalk.white(`  Services: ${config.services.join(', ')}`));
+      console.log(chalk.white(`  Template: ${config.template}`));
+      if (config.profiles) {
+        console.log(chalk.white(`  Optional profiles: ${config.profiles.join(', ')}`));
+      }
+      console.log();
+    });
+}
+
+export async function handleComposeTemplate(template, options = {}) {
+  console.log(chalk.blue.bold(`🚀 Initializing ${template} Multi-Service Template\n`));
+
+  try {
+    // Find the stack by template name
+    const stackEntry = Object.entries(STACKS).find(([_, config]) => 
+      config.template === template || config.name.toLowerCase().includes(template.toLowerCase())
+    );
+
+    if (!stackEntry) {
+      console.error(chalk.red(`Template "${template}" not found.`));
+      console.log(chalk.blue('Available templates:'));
+      Object.entries(STACKS)
+        .filter(([_, config]) => config.multiService)
+        .forEach(([key, config]) => {
+          console.log(chalk.white(`  ${config.template} (${key})`));
+        });
+      process.exit(1);
+    }
+
+    const [stack, stackConfig] = stackEntry;
+
+    if (!stackConfig.multiService) {
+      console.error(chalk.red(`Template "${template}" is not a multi-service template.`));
+      process.exit(1);
+    }
+
+    const generator = new DevContainerGenerator(options);
+    
+    // Generate configuration
+    const config = generator.generateComposeConfig(stack, {
+      name: `${path.basename(process.cwd())} (${stackConfig.name})`
+    });
+
+    if (!options.noInteraction) {
+      console.log(chalk.blue('\n📋 Configuration Preview:'));
+      console.log(chalk.gray(JSON.stringify(config, null, 2)));
+
+      const { confirm } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'confirm',
+          message: 'Create multi-service DevContainer configuration?',
+          default: true
+        }
+      ]);
+
+      if (!confirm) {
+        console.log(chalk.yellow('Configuration cancelled.\n'));
+        return;
+      }
+    }
+
+    // Create configuration files
+    await generator.writeComposeFiles(stack, config);
+    
+    console.log(chalk.green.bold('\n🎉 Multi-service DevContainer setup complete!\n'));
+    console.log(chalk.blue('Files created:'));
+    console.log(chalk.white('  • .devcontainer/devcontainer.json'));
+    console.log(chalk.white('  • docker-compose.yml'));
+    console.log(chalk.white('  • .env.example'));
+    if (stackConfig.template === 'fullstack-nextjs') {
+      console.log(chalk.white('  • docker/db/init/01-extensions.sql'));
+    }
+    
+    console.log(chalk.blue('\nNext steps:'));
+    console.log(chalk.white('  1. Copy .env.example to .env and customize'));
+    console.log(chalk.white('  2. Open project in VS Code'));
+    console.log(chalk.white('  3. Use "Dev Containers: Reopen in Container"'));
+    if (stackConfig.profiles) {
+      console.log(chalk.white(`  4. Optional: Start with all services: docker-compose --profile ${stackConfig.profiles.join(',')} up`));
+    }
+    console.log();
+
+  } catch (error) {
+    console.error(chalk.red.bold('\n❌ Error:'), error.message);
+    process.exit(1);
+  }
+}
+
 // CLI Setup function (extracted for testability)
 export function setupCLI() {
   program
@@ -752,6 +1090,8 @@ export function setupCLI() {
     .command('init')
     .description('Initialize a new Claude DevContainer configuration')
     .option('-s, --stack <stack>', 'Pre-select development stack')
+    .option('--multi-service', 'Force multi-service Docker Compose setup')
+    .option('--single', 'Force single container setup')
     .option('--no-interaction', 'Run without interactive prompts')
     .action(handleInit);
 
@@ -788,6 +1128,17 @@ export function setupCLI() {
     .command('stacks')
     .description('List available development stacks')
     .action(handleStacks);
+
+  program
+    .command('services')
+    .description('List available multi-service templates')
+    .action(handleServices);
+
+  program
+    .command('compose <template>')
+    .description('Initialize with specific multi-service template')
+    .option('--no-interaction', 'Run without interactive prompts')
+    .action(handleComposeTemplate);
     
   return program;
 }
