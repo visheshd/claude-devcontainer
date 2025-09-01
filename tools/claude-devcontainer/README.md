@@ -32,14 +32,23 @@ node src/index.js init
 ## Quick Start
 
 ```bash
-# Initialize a new DevContainer configuration
-claude-devcontainer init
-
-# Detect project type
+# Analyze your project and get recommendations
 claude-devcontainer detect
 
-# List available stacks
+# Initialize with recommended stack (interactive)
+claude-devcontainer init
+
+# List all available single-container and multi-service stacks
 claude-devcontainer stacks
+
+# List multi-service templates for complex projects
+claude-devcontainer services
+
+# Initialize directly with a multi-service template
+claude-devcontainer compose web-db-stack
+
+# Check existing configuration for needed updates
+claude-devcontainer check
 ```
 
 ## Commands
@@ -52,39 +61,159 @@ Initialize a new Claude DevContainer configuration with interactive setup.
 claude-devcontainer init [options]
 
 Options:
-  -s, --stack <stack>    Pre-select development stack
-  --no-interaction      Run without interactive prompts
+  -s, --stack <stack>      Pre-select development stack
+  -f, --features <list>    Comma-separated list of MCP features
+  -n, --name <name>        Project name for DevContainer
+  --multi-service          Force multi-service setup
+  --no-interaction         Run without interactive prompts
 ```
 
-**Example:**
+**Examples:**
 ```bash
-# Interactive setup
+# Interactive setup with project detection
 claude-devcontainer init
 
-# Pre-select Python ML stack
-claude-devcontainer init -s python-ml
+# Pre-select Python ML stack with specific features
+claude-devcontainer init -s python-ml -f serena,context7,langchain-tools
+
+# Force multi-service setup for complex projects
+claude-devcontainer init --multi-service
 ```
 
 ### `detect`
 
-Automatically detect the project type based on files in the current directory.
+Automatically detect the project type based on files in the current directory with enhanced analysis.
 
 ```bash
 claude-devcontainer detect
 ```
 
-**Detection Logic:**
-- **Node.js/Next.js**: Detects `package.json`, checks for Next.js dependencies
+**Enhanced Detection Logic:**
+- **Node.js/Next.js**: Detects `package.json`, checks for Next.js dependencies, database usage
 - **Rust/Tauri**: Detects `Cargo.toml`, checks for `src-tauri/` directory
-- **Python/ML**: Detects Python files and ML library imports
+- **Python/ML**: Detects Python files and ML library imports (pandas, numpy, sklearn, etc.)
+- **Complexity Analysis**: Scores project complexity (0-10) for multi-service recommendations
+- **Service Detection**: Identifies database, cache, and background job usage
+- **Existing Docker**: Detects existing Docker Compose configurations
+
+**Output includes:**
+- Detected project types and recommended stacks
+- Project complexity score with multi-service recommendations
+- Additional findings (database usage, cache, background jobs, etc.)
+- Suggested next steps and commands
 
 ### `stacks`
 
-List all available development stacks with descriptions.
+List all available development stacks with descriptions, separated by single-container and multi-service.
 
 ```bash
 claude-devcontainer stacks
 ```
+
+**Shows:**
+- Single-container stacks with images, ports, features, and host build support
+- Multi-service stacks with services, ports, and features
+- Usage examples and stack selection guide
+
+### `services`
+
+List available multi-service templates with validation and detailed information.
+
+```bash
+claude-devcontainer services
+```
+
+**Features:**
+- Shows all multi-service templates with service breakdowns
+- Lists physical template files and their contents
+- Validates template structure and reports issues
+- Provides usage examples and template guide
+
+### `compose <template>`
+
+Initialize with a specific multi-service template for complex applications.
+
+```bash
+claude-devcontainer compose <template> [options]
+
+Options:
+  -n, --name <name>    Project name
+  --no-interaction     Run without interactive prompts
+```
+
+**Examples:**
+```bash
+# Initialize with web + database template
+claude-devcontainer compose web-db-stack
+
+# Initialize Python ML services with custom name
+claude-devcontainer compose python-ml-services -n "My ML Project"
+
+# Non-interactive setup
+claude-devcontainer compose fullstack-nextjs --no-interaction
+```
+
+### Migration Commands
+
+#### `migrate`
+
+Migrate existing DevContainer configuration to latest Claude setup with intelligent analysis.
+
+```bash
+claude-devcontainer migrate [options]
+
+Options:
+  --dry-run    Show proposed changes without applying them
+  --auto       Apply safe changes automatically without prompting
+```
+
+#### `migrate-specific <changesets...>`
+
+Apply specific change sets for targeted migrations.
+
+```bash
+claude-devcontainer migrate-specific <changesets...> [options]
+
+Options:
+  --dry-run    Show proposed changes without applying them
+  --auto       Apply changes automatically without prompting
+```
+
+**Examples:**
+```bash
+# Apply specific change sets
+claude-devcontainer migrate-specific add-claude-mount update-image
+
+# Preview changes
+claude-devcontainer migrate-specific add-mcp-feature --dry-run
+```
+
+#### `check`
+
+Analyze existing DevContainer configuration for issues and needed updates.
+
+```bash
+claude-devcontainer check
+```
+
+**Provides:**
+- Configuration analysis and compatibility check
+- List of available and needed change sets
+- Identification of issues and recommended fixes
+
+#### `change-sets`
+
+List all available change sets with descriptions and dependencies.
+
+```bash
+claude-devcontainer change-sets
+```
+
+**Shows:**
+- All available change sets with IDs and descriptions
+- Version information and tags
+- Dependencies and conflicts between change sets
+- Usage examples for applying specific changes
 
 ## Available Stacks
 
@@ -112,6 +241,41 @@ claude-devcontainer stacks
 - **Features**: Base Claude environment for custom configuration
 - **Extensions**: None (configure as needed)
 - **Use Case**: Starting point for creating specialized environments
+
+## Multi-Service Stacks
+
+For complex applications requiring databases, caches, and background services, use multi-service stacks that provide complete development environments with Docker Compose.
+
+### Web + Database (`web-db`)
+- **Template**: `web-db-stack`
+- **Services**: app (Next.js), db (PostgreSQL), redis (Redis)
+- **Ports**: 3000 (Next.js), 3001 (API), 5432 (PostgreSQL), 6379 (Redis)
+- **Features**: Next.js development with database and caching
+- **Extensions**: Tailwind CSS, Prettier, TypeScript, PostgreSQL
+- **Use Case**: Web applications with database requirements
+
+### Python ML Services (`python-ml-services`)
+- **Template**: `python-ml-services`
+- **Services**: app (Python ML), vectordb (PostgreSQL + pgvector), redis (Redis Stack)
+- **Ports**: 8888 (Jupyter), 8000 (ML API), 6006 (TensorBoard), 5432 (Vector DB), 6379 (Redis), 8001 (Vector API)
+- **Features**: Machine learning with vector search and data processing
+- **Extensions**: Python, Jupyter, Black formatter, PostgreSQL
+- **Use Case**: ML projects requiring vector databases and data pipelines
+
+### Full-Stack App (`fullstack`)
+- **Template**: `fullstack-nextjs`
+- **Services**: app (Next.js), worker (background jobs), db (PostgreSQL), redis (Redis), mail (Mailhog), storage (MinIO)
+- **Ports**: 3000 (Next.js), 3001 (API), 5432 (PostgreSQL), 6379 (Redis), 8025 (Mailhog), 9000 (MinIO API), 9001 (MinIO Console)
+- **Features**: Complete web application with all supporting services
+- **Extensions**: Tailwind CSS, Prettier, TypeScript, PostgreSQL, Prisma
+- **Use Case**: Enterprise applications with background processing, email, and file storage
+
+### Multi-Service Benefits
+- **Complete Environments**: All dependencies included and pre-configured
+- **Service Integration**: Services can communicate with each other seamlessly
+- **Development Parity**: Matches production architecture for better testing
+- **Resource Management**: Optimized resource allocation based on service count
+- **Template Customization**: Copy and modify templates for your specific needs
 
 ## Configuration Options
 
@@ -450,7 +614,9 @@ docker run --rm my-custom-claude:latest your-custom-tool --version
 
 ## Examples
 
-### Basic Python ML Project
+### Single-Container Examples
+
+#### Basic Python ML Project
 
 ```bash
 cd my-ml-project
@@ -459,7 +625,7 @@ claude-devcontainer init -s python-ml
 # Container will have Jupyter available on port 8888
 ```
 
-### Tauri Desktop App with Host Builds
+#### Tauri Desktop App with Host Builds
 
 ```bash
 cd my-tauri-app
@@ -468,7 +634,7 @@ claude-devcontainer init -s rust-tauri
 # Select serena, context7, rust-analyzer, tauri-tools
 ```
 
-### Next.js Web Application
+#### Next.js Web Application
 
 ```bash
 cd my-nextjs-app
@@ -477,7 +643,96 @@ claude-devcontainer init -s nextjs
 # Includes Tailwind CSS and Prettier extensions
 ```
 
+### Multi-Service Examples
+
+#### Web Application with Database
+
+```bash
+cd my-web-app
+claude-devcontainer detect
+# If database usage detected, will recommend web-db stack
+
+# Initialize with multi-service template
+claude-devcontainer compose web-db-stack
+# Creates docker-compose.yml with Next.js, PostgreSQL, Redis
+# VS Code connects to 'app' service, other services run alongside
+```
+
+#### Machine Learning Pipeline
+
+```bash
+cd my-ml-pipeline
+claude-devcontainer init -s python-ml-services
+# Creates environment with vector database and Redis Stack
+# Jupyter on 8888, TensorBoard on 6006, Vector API on 8001
+# Perfect for ML projects with vector search and data processing
+```
+
+#### Full-Stack Enterprise Application
+
+```bash
+cd my-enterprise-app
+claude-devcontainer compose fullstack-nextjs -n "My Enterprise App"
+# Complete environment with:
+# - Next.js app with TypeScript and Prisma
+# - PostgreSQL database
+# - Redis for caching and sessions  
+# - Background worker for jobs
+# - Mailhog for email testing
+# - MinIO for file storage
+```
+
+### Advanced Workflows
+
+#### Project Detection and Multi-Service Setup
+
+```bash
+cd my-complex-project
+
+# Analyze project complexity
+claude-devcontainer detect
+# Shows complexity score and multi-service recommendations
+
+# If complexity >= 4, initialize with multi-service
+claude-devcontainer init --multi-service
+# Automatically selects appropriate multi-service stack
+```
+
+#### Template-Based Development
+
+```bash
+# List available multi-service templates
+claude-devcontainer services
+
+# Initialize with specific template
+claude-devcontainer compose python-ml-services
+
+# Customize the generated docker-compose.yml as needed
+# All template files are copied to your project
+```
+
+#### Migration from Existing Setup
+
+```bash
+cd existing-devcontainer-project
+
+# Check current configuration
+claude-devcontainer check
+
+# See available migrations
+claude-devcontainer change-sets
+
+# Apply specific improvements
+claude-devcontainer migrate-specific add-claude-mount update-image
+
+# Or migrate everything
+claude-devcontainer migrate --dry-run  # Preview changes
+claude-devcontainer migrate            # Apply all needed updates
+```
+
 ### Custom Configuration
+
+#### Basic Custom Stack
 
 ```bash
 cd my-custom-project
@@ -486,7 +741,7 @@ claude-devcontainer init -s custom
 # Add custom MCP servers and extensions
 ```
 
-### Advanced Custom Environment
+#### Advanced Custom Environment
 
 ```bash
 cd my-database-project
