@@ -71,12 +71,18 @@ grep -r "key\|token\|secret" ~/.claude/ 2>/dev/null || echo "No obvious secrets 
 ls -la ~/.claude/mcp/ 2>/dev/null || echo "No MCP directory found"
 ```
 
-### 2. Environment-Specific Strategies
+### 2. Three-Tier Mounting Strategy
 
-#### Personal Development (Recommended)
+Choose the mounting strategy that best fits your security requirements and development environment:
+
+#### **Tier 1: Full Mount** 🟢 (Personal Development)
+**Best for**: Solo development, trusted personal environments  
+**Risk**: High - all personal data exposed  
+**Benefit**: Complete seamless experience with all your customizations
+
 ```json
 {
-  "name": "My Project",
+  "name": "Personal Project",
   "image": "claude-nextjs:latest",
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
@@ -84,32 +90,77 @@ ls -la ~/.claude/mcp/ 2>/dev/null || echo "No MCP directory found"
 }
 ```
 
-#### Team Development (Selective Mounting)
+**What you get**: All personal settings, custom commands, API tokens, MCP configurations, chat history
+
+---
+
+#### **Tier 2: Selective Mount** ⭐ 🟡 (Recommended for Teams)
+**Best for**: Team development, shared workstations, collaborative environments  
+**Risk**: Low - only safe customizations exposed  
+**Benefit**: Personal productivity without security compromise
+
 ```json
 {
-  "name": "Team Project", 
-  "image": "claude-nextjs:latest",
+  "name": "Team Project",
+  "image": "claude-nextjs:latest", 
   "mounts": [
-    // Mount only specific subdirectories
-    "source=${localEnv:HOME}/.claude/settings.json,target=/home/claude-user/.claude/settings.json,type=bind,readonly",
-    "source=${localEnv:HOME}/.claude/commands,target=/home/claude-user/.claude/commands,type=bind,readonly"
+    // Safe customizations only
+    "source=${localEnv:HOME}/.claude/commands,target=/home/claude-user/.claude/commands,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude/settings.json,target=/home/claude-user/.claude/settings.json,type=bind,readonly"
   ]
 }
 ```
 
-#### Shared/Untrusted Environments (No Mounting)
+**What you get**: Personal commands, UI preferences, safe settings  
+**What's excluded**: API tokens, credentials, MCP server configs, chat history  
+**Note**: Default MCP servers (serena, context7) are still automatically available
+
+---
+
+#### **Tier 3: No Mount** 🔴 (Maximum Security)
+**Best for**: Public demos, CI/CD pipelines, untrusted environments  
+**Risk**: None - no personal data exposed  
+**Limitation**: No personal customizations, but Claude Code still works
+
 ```json
 {
-  "name": "Shared Project",
+  "name": "Secure Project",
   "image": "claude-nextjs:latest",
   "mounts": [
-    // No .claude mounting - configure MCP servers manually if needed
-  ],
-  "containerEnv": {
-    "CLAUDE_CODE_DISABLED": "true"
-  }
+    // No .claude mounting
+  ]
 }
 ```
+
+**What you get**: Default MCP servers (serena, context7), basic Claude Code functionality  
+**What's excluded**: All personal data, settings, commands, customizations  
+**Important**: Claude Code and MCP servers still work with defaults
+
+---
+
+### Selective Mount Details
+
+For **Tier 2 (Selective Mount)**, you can choose exactly what to expose:
+
+#### Safe to Mount (Low Risk)
+```json
+"mounts": [
+  // Personal commands (your custom shortcuts)
+  "source=${localEnv:HOME}/.claude/commands,target=/home/claude-user/.claude/commands,type=bind,readonly",
+  
+  // UI preferences and safe settings  
+  "source=${localEnv:HOME}/.claude/settings.json,target=/home/claude-user/.claude/settings.json,type=bind,readonly",
+  
+  // Project-specific configurations (if they exist)
+  "source=${localEnv:HOME}/.claude/projects,target=/home/claude-user/.claude/projects,type=bind,readonly"
+]
+```
+
+#### Never Mount (High Risk)
+- `~/.claude/auth/` - Authentication tokens and credentials
+- `~/.claude/mcp/` - MCP server configurations with API keys  
+- `~/.claude/sessions/` - Chat history and session data
+- `~/.claude/cache/` - Potentially sensitive cached data
 
 ### 3. Alternative Approaches
 

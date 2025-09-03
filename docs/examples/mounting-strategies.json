@@ -1,0 +1,150 @@
+{
+  "// CLAUDE DEVCONTAINER MOUNTING STRATEGIES": "Choose the strategy that matches your security requirements",
+  
+  "// TIER 1: FULL MOUNT (Personal Development)": {
+    "description": "Maximum functionality, higher security risk",
+    "best_for": "Solo development, trusted personal environments",
+    "risk_level": "High - all personal data exposed",
+    "configuration": {
+      "name": "Personal Development Project",
+      "image": "claude-nextjs:latest",
+      "mounts": [
+        "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+      ],
+      "what_you_get": [
+        "All personal settings and preferences",
+        "Custom commands and shortcuts", 
+        "Personal MCP server configurations",
+        "API tokens and credentials (automatically available)",
+        "Chat history and session data",
+        "Complete seamless Claude Code experience"
+      ],
+      "security_considerations": [
+        "All personal credentials accessible in container",
+        "Chat history and usage data exposed",
+        "Personal API keys available to container processes",
+        "Not suitable for shared or team environments"
+      ]
+    }
+  },
+
+  "// TIER 2: SELECTIVE MOUNT (Recommended for Teams)": {
+    "description": "Best balance of security and functionality",
+    "best_for": "Team development, shared workstations, collaborative environments",
+    "risk_level": "Low - only safe customizations exposed",
+    "configuration": {
+      "name": "Team Development Project",
+      "image": "claude-nextjs:latest",
+      "mounts": [
+        "source=${localEnv:HOME}/.claude/commands,target=/home/claude-user/.claude/commands,type=bind,readonly",
+        "source=${localEnv:HOME}/.claude/settings.json,target=/home/claude-user/.claude/settings.json,type=bind,readonly"
+      ],
+      "what_you_get": [
+        "Personal commands and shortcuts",
+        "UI preferences and safe settings",
+        "Project-specific configurations",
+        "Default MCP servers (serena, context7) automatically available",
+        "Personal productivity without security compromise"
+      ],
+      "what_stays_secure": [
+        "API tokens and credentials remain on host only",
+        "Personal MCP server configurations not exposed", 
+        "Chat history and session data protected",
+        "Authentication tokens stay secure"
+      ],
+      "advanced_selective_options": {
+        "// Add project configs if they exist": "source=${localEnv:HOME}/.claude/projects,target=/home/claude-user/.claude/projects,type=bind,readonly",
+        "// Add workspace preferences": "source=${localEnv:HOME}/.claude/workspace,target=/home/claude-user/.claude/workspace,type=bind,readonly",
+        "// Never mount sensitive directories": [
+          "~/.claude/auth/ (authentication tokens)",
+          "~/.claude/mcp/ (MCP server configs with API keys)",
+          "~/.claude/sessions/ (chat history)",
+          "~/.claude/cache/ (potentially sensitive cached data)"
+        ]
+      }
+    }
+  },
+
+  "// TIER 3: NO MOUNT (Maximum Security)": {
+    "description": "No personal data exposure, Claude Code still works",
+    "best_for": "Public demos, CI/CD pipelines, untrusted environments",
+    "risk_level": "None - no personal data exposed",
+    "configuration": {
+      "name": "Secure Development Project",
+      "image": "claude-nextjs:latest", 
+      "mounts": [
+        "// No .claude mounting - completely secure"
+      ],
+      "containerEnv": {
+        "// Optional - explicitly disable some Claude Code features": "CLAUDE_CODE_LIMITED_MODE=true"
+      },
+      "what_you_get": [
+        "Default MCP servers (serena, context7) automatically installed",
+        "Basic Claude Code functionality",
+        "Clean, secure development environment",
+        "No risk of personal data exposure"
+      ],
+      "what_you_lose": [
+        "Personal commands and shortcuts",
+        "Custom UI preferences and settings",
+        "Personal MCP server configurations",
+        "Seamless experience with personal credentials"
+      ],
+      "important_note": "Claude Code and MCP servers still work - you just get defaults instead of personal customizations"
+    }
+  },
+
+  "// MIGRATION FROM FULL TO SELECTIVE": {
+    "description": "How to upgrade existing full mount to selective mount",
+    "steps": [
+      {
+        "step": 1,
+        "action": "Edit devcontainer.json",
+        "before": {
+          "mounts": [
+            "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+          ]
+        },
+        "after": {
+          "mounts": [
+            "source=${localEnv:HOME}/.claude/commands,target=/home/claude-user/.claude/commands,type=bind,readonly",
+            "source=${localEnv:HOME}/.claude/settings.json,target=/home/claude-user/.claude/settings.json,type=bind,readonly"
+          ]
+        }
+      },
+      {
+        "step": 2,
+        "action": "Rebuild container",
+        "command": "Command Palette > 'Dev Containers: Rebuild Container'"
+      },
+      {
+        "step": 3,
+        "action": "Verify functionality",
+        "checks": [
+          "Claude Code extension loads",
+          "Personal commands available",
+          "MCP servers (serena, context7) working",
+          "No personal tokens exposed in container"
+        ]
+      }
+    ]
+  },
+
+  "// ENVIRONMENT-SPECIFIC RECOMMENDATIONS": {
+    "personal_laptop": "Tier 1 (Full Mount) - safe for personal development",
+    "team_workstation": "Tier 2 (Selective Mount) - balance security with productivity", 
+    "shared_computer": "Tier 2 or 3 - depends on trust level and data sensitivity",
+    "public_demo": "Tier 3 (No Mount) - never expose personal data",
+    "ci_cd_pipeline": "Tier 3 (No Mount) - use service accounts, not personal data",
+    "cloud_dev_environment": "Tier 2 (Selective Mount) - assume others might have access",
+    "contractor_machine": "Tier 3 (No Mount) - minimize data exposure to external parties"
+  },
+
+  "// TROUBLESHOOTING": {
+    "claude_code_not_loading": "Check if anthropic.claude-code extension is installed in devcontainer.json",
+    "mcp_servers_missing": "Default servers (serena, context7) install automatically via claude-mcp feature",
+    "personal_commands_gone": "Make sure ~/.claude/commands is mounted (Tier 2) or use full mount (Tier 1)",
+    "api_keys_not_working": "API keys only available with full mount (Tier 1) - use env vars for Tier 2/3",
+    "settings_reset": "Mount ~/.claude/settings.json for persistent UI preferences (Tier 2+)"
+  }
+}

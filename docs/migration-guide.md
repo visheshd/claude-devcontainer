@@ -353,8 +353,9 @@ code . # Opens in DevContainer
 1. **Claude Code extension loads properly**
 2. **MCP servers are available** (check terminal for serena/context7 commands)
 3. **.claude directory is mounted** (check `/home/claude-user/.claude` exists)
-   - ⚠️ **Security Note**: This mounts your personal Claude Code data (API tokens, settings, credentials)
-   - See [Security Guide](SECURITY.md) for privacy implications and opt-out instructions
+   - ⚠️ **Security Note**: Migration uses full mount by default (exposes all personal data)
+   - 💡 **Consider switching** to selective mounting for better security (see below)
+   - See [Security Guide](SECURITY.md) for mounting strategies and examples
 4. **Your custom mounts and settings are preserved**
 5. **All your custom extensions still work**
 
@@ -391,7 +392,49 @@ After successful migration, you'll have:
 ✅ **Enhanced AI Integration**: MCP servers provide better code analysis and assistance  
 ✅ **User Customizations**: .claude directory allows persistent user preferences
    - ⚠️ **Privacy Impact**: Personal Claude Code data is now mounted in containers
-   - See [Security Guide](SECURITY.md) to understand what data is exposed and how to control it  
+   - 💡 **Tip**: Consider upgrading to selective mounting for better security
+   - See [Security Guide](SECURITY.md) for three mounting strategies and migration examples  
 ✅ **Updated Tooling**: Latest base images with improved development tools  
 ✅ **Better Performance**: Optimized container startup and resource usage  
 ✅ **Future Compatibility**: Ready for upcoming Claude DevContainer features
+
+## Post-Migration Security Upgrade
+
+### Switch to Selective Mounting (Recommended for Teams)
+
+After migration, your DevContainer uses **full mounting** by default, which exposes all personal data. For better security in team environments, consider upgrading to **selective mounting**:
+
+#### 1. Edit your `devcontainer.json`
+Replace the full mount:
+```json
+{
+  "mounts": [
+    // Replace this (full mount):
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+  ]
+}
+```
+
+With selective mounting:
+```json
+{
+  "mounts": [
+    // Safe customizations only:
+    "source=${localEnv:HOME}/.claude/commands,target=/home/claude-user/.claude/commands,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude/settings.json,target=/home/claude-user/.claude/settings.json,type=bind,readonly"
+  ]
+}
+```
+
+#### 2. Rebuild Container
+```bash
+# Rebuild container with new mount configuration
+# Command Palette > "Dev Containers: Rebuild Container"
+```
+
+#### Benefits of Selective Mounting
+- ✅ **Keep**: Personal commands, UI preferences, safe settings
+- 🔒 **Protect**: API tokens, credentials, chat history, MCP configs
+- 🤖 **Maintain**: Default MCP servers (serena, context7) still work
+
+See [Security Guide](SECURITY.md) for complete details and more mounting options.

@@ -439,25 +439,50 @@ Your `~/.claude` directory may contain:
 - ⚠️ **Risk**: Shared development environments may expose personal data
 - ⚠️ **Risk**: Container processes can access your Claude configuration
 
-### Best Practices
-1. **Review your `~/.claude` contents** before using shared/team development environments
-2. **Use separate Claude accounts** for sensitive vs. collaborative work
-3. **Consider disabling mounting** in untrusted environments (see opt-out below)
-4. **Regularly audit** what's stored in your `~/.claude` directory
+### Mounting Strategies (Choose Based on Your Environment)
 
-### Disabling .claude Mounting (Opt-Out)
-If you prefer not to mount personal data, edit your project's `devcontainer.json`:
+#### **Recommended: Selective Mount** ⭐ (Teams/Shared Environments)
+Best balance of security and functionality:
 
 ```json
 {
   "mounts": [
-    // Comment out or remove the .claude mount:
-    // "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+    // Mount only safe customizations (no tokens/credentials)
+    "source=${localEnv:HOME}/.claude/commands,target=/home/claude-user/.claude/commands,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude/settings.json,target=/home/claude-user/.claude/settings.json,type=bind,readonly"
   ]
 }
 ```
 
-Note: Without mounting, you'll lose Claude Code customizations and may need to configure MCP servers manually inside containers.
+**✅ You get**: Personal commands, UI preferences, safe settings  
+**🔒 Protected**: API tokens, credentials, chat history remain secure  
+**🤖 MCP servers**: Default serena + context7 still work automatically
+
+#### **Full Mount** (Personal Development Only)
+Maximum functionality, higher security risk:
+
+```json
+{
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+  ]
+}
+```
+
+#### **No Mount** (Maximum Security)
+For untrusted/public environments:
+
+```json
+{
+  "mounts": [
+    // No .claude mounting
+  ]
+}
+```
+
+**Important**: Claude Code and MCP servers (serena, context7) still work with defaults - you won't lose core functionality.
+
+📖 **See [Security Guide](docs/SECURITY.md)** for detailed explanations and more configuration options.
 
 ## 🧪 Testing Your Setup
 
