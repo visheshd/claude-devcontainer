@@ -24,7 +24,12 @@ export async function handleCleanup(worktreeName, options = {}) {
     throw new Error('Not in a git repository');
   }
   
-  const { list, interactive, merged, all, dryRun, force } = options;
+  const { list, interactive, merged, all, dryRun, force, verbose } = options;
+  
+  // Enable debug output if verbose mode
+  if (verbose) {
+    printStatus('Verbose mode enabled - showing detailed debug information');
+  }
   
   try {
     // Handle list mode
@@ -58,12 +63,29 @@ export async function handleCleanup(worktreeName, options = {}) {
       targetWorktrees = [target];
     } else if (merged) {
       // Clean merged branches only
+      if (verbose) {
+        printStatus('Getting list of merged branches...');
+      }
+      
       const mergedBranches = getMergedBranches();
+      
+      if (verbose) {
+        printStatus(`All worktrees found: ${allWorktrees.map(wt => `${wt.name} (${wt.branch || 'main repo'})`).join(', ')}`);
+        printStatus(`Merged branches: ${mergedBranches.join(', ') || 'none'}`);
+      }
+      
       targetWorktrees = allWorktrees.filter(wt => 
         wt.branch && mergedBranches.includes(wt.branch)
       );
       
+      if (verbose) {
+        printStatus(`Worktrees matching merged branches: ${targetWorktrees.map(wt => wt.name).join(', ') || 'none'}`);
+      }
+      
       if (targetWorktrees.length === 0) {
+        if (verbose) {
+          printStatus('Debug: No worktree branches match the merged branches list');
+        }
         printStatus('No worktrees found for merged branches');
         return;
       }

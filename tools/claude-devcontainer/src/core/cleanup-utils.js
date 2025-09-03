@@ -113,32 +113,81 @@ export function getAllWorktrees() {
  */
 export function getMergedBranches() {
   try {
-    // Get the default branch name
+    // Get the default branch name with multiple fallback strategies
     let defaultBranch;
+    
+    // Strategy 1: Try git symbolic-ref for remote HEAD
     try {
       defaultBranch = execSync('git symbolic-ref refs/remotes/origin/HEAD', { encoding: 'utf8' })
         .replace('refs/remotes/origin/', '').trim();
+      printStatus(`Found default branch from remote HEAD: ${defaultBranch}`);
     } catch {
-      // Fallback to common default branch names
+      // Strategy 2: Try current branch if we're on main/master
       try {
-        execSync('git show-ref --verify --quiet refs/heads/main', { stdio: 'ignore' });
-        defaultBranch = 'main';
+        const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+        if (currentBranch === 'main' || currentBranch === 'master') {
+          defaultBranch = currentBranch;
+          printStatus(`Using current branch as default: ${defaultBranch}`);
+        }
       } catch {
-        defaultBranch = 'master';
+        // Ignore and continue to next strategy
       }
     }
     
-    // Get merged branches
-    const output = execSync(`git branch --merged ${defaultBranch}`, { encoding: 'utf8' });
-    const branches = output
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line && !line.startsWith('*') && line !== defaultBranch)
-      .map(line => line.replace(/^\* /, ''));
+    // Strategy 3: Check for 'main' branch existence
+    if (!defaultBranch) {
+      try {
+        execSync('git show-ref --verify --quiet refs/heads/main', { stdio: 'ignore' });
+        defaultBranch = 'main';
+        printStatus(`Found 'main' branch, using as default`);
+      } catch {
+        // Strategy 4: Check for 'master' branch existence  
+        try {
+          execSync('git show-ref --verify --quiet refs/heads/master', { stdio: 'ignore' });
+          defaultBranch = 'master';
+          printStatus(`Found 'master' branch, using as default`);
+        } catch {
+          // Strategy 5: Use the first branch we can find
+          try {
+            const branches = execSync('git branch', { encoding: 'utf8' })
+              .split('\n')
+              .map(line => line.trim().replace(/^\* /, ''))
+              .filter(line => line && line !== '(no branch)');
+            
+            if (branches.length > 0) {
+              defaultBranch = branches[0];
+              printWarning(`No main/master branch found, using first available: ${defaultBranch}`);
+            }
+          } catch {
+            throw new Error('Unable to determine default branch - no branches found in repository');
+          }
+        }
+      }
+    }
     
-    return branches;
+    if (!defaultBranch) {
+      throw new Error('Unable to determine default branch for merge detection');
+    }
+    
+    // Get merged branches
+    try {
+      const output = execSync(`git branch --merged ${defaultBranch}`, { encoding: 'utf8' });
+      const branches = output
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('*') && line !== defaultBranch)
+        .map(line => line.replace(/^[*\+]\s*/, '')); // Clean up *, +, and whitespace prefixes
+      
+      printStatus(`Found ${branches.length} branches merged into ${defaultBranch}: ${branches.join(', ') || 'none'}`);
+      return branches;
+    } catch (error) {
+      printWarning(`Failed to get merged branches for ${defaultBranch}: ${error.message}`);
+      return []; // Return empty array instead of throwing
+    }
+    
   } catch (error) {
-    throw new Error(`Failed to get merged branches: ${error.message}`);
+    printError(`Failed to get merged branches: ${error.message}`);
+    return []; // Return empty array instead of throwing to allow cleanup to continue
   }
 }
 

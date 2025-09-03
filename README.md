@@ -136,6 +136,7 @@ cdc cleanup --list                       # List all worktrees and artifacts
 cdc cleanup --interactive               # Interactive cleanup
 cdc cleanup --merged                     # Clean merged branches only
 cdc cleanup --dry-run --all             # Preview cleanup without doing it
+cdc cleanup --merged --verbose          # Debug merged branch detection
 
 # Analyze existing DevContainer configuration
 claude-devcontainer check
