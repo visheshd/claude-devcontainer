@@ -1,10 +1,83 @@
 import chalk from 'chalk';
 import inquirer from 'inquirer';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { ProjectDetector } from '../core/project-detector.js';
 import { ConfigGenerator } from '../core/config-generator.js';
 import { FileWriter } from '../core/file-writer.js';
 import { getStack, getAvailableStacks, getStacksByType } from '../core/stack-configuration.js';
 import { StackConfigurationError, ProjectDetectionError } from '../core/devcontainer-error.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Install post-merge git hook for integrated worktree and Docker cleanup
+ */
+async function installPostMergeHook() {
+  try {
+    // Check if we're in a git repository
+    const gitDir = '.git';
+    try {
+      await fs.access(gitDir);
+    } catch {
+      console.log(chalk.yellow('⚠️  Not in a git repository, skipping post-merge hook installation'));
+      return;
+    }
+
+    // Ensure hooks directory exists
+    const hooksDir = path.join(gitDir, 'hooks');
+    await fs.mkdir(hooksDir, { recursive: true });
+
+    // Path to our hook template - adjusted to point to the correct location
+    const hookTemplatePath = path.resolve(__dirname, '../../../../templates/hooks/post-merge');
+    const hookDestPath = path.join(hooksDir, 'post-merge');
+
+    // Check if hook template exists
+    try {
+      await fs.access(hookTemplatePath);
+    } catch {
+      console.log(chalk.yellow('⚠️  Post-merge hook template not found, skipping installation'));
+      return;
+    }
+
+    // Check if hook already exists
+    let hookExists = false;
+    try {
+      await fs.access(hookDestPath);
+      hookExists = true;
+    } catch {
+      // Hook doesn't exist, which is fine
+    }
+
+    if (hookExists) {
+      // Read existing hook to check if it's ours
+      const existingHook = await fs.readFile(hookDestPath, 'utf8');
+      if (existingHook.includes('integrated worktree removal and Docker cleanup')) {
+        console.log(chalk.blue('ℹ️  Post-merge hook already installed'));
+        return;
+      } else {
+        console.log(chalk.yellow('⚠️  Existing post-merge hook found, skipping installation to avoid conflicts'));
+        console.log(chalk.gray('   Manual installation: cp templates/hooks/post-merge .git/hooks/'));
+        return;
+      }
+    }
+
+    // Copy the hook template
+    await fs.copyFile(hookTemplatePath, hookDestPath);
+    
+    // Make the hook executable
+    await fs.chmod(hookDestPath, 0o755);
+
+    console.log(chalk.green('✅ Installed post-merge hook for worktree and Docker cleanup'));
+    console.log(chalk.gray('   The hook will prompt to remove worktrees and Docker artifacts after merges'));
+    
+  } catch (error) {
+    console.log(chalk.yellow(`⚠️  Failed to install post-merge hook: ${error.message}`));
+    console.log(chalk.gray('   Manual installation: cp templates/hooks/post-merge .git/hooks/'));
+  }
+}
 
 /**
  * Handle the init command for creating new DevContainer configurations
@@ -200,6 +273,9 @@ export async function handleInit(options = {}) {
       await fileWriter.writeDevContainerFiles(config, { includeSettings: options.includeSettings });
     }
 
+    // Install post-merge hook for integrated worktree and Docker cleanup
+    await installPostMergeHook();
+    
     console.log(chalk.green('\n✅ DevContainer configuration created successfully!'));
     
     if (multiService) {
