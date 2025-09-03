@@ -99,7 +99,7 @@ export async function handleCleanup(worktreeName, options = {}) {
       return await interactiveCleanup(allWorktrees, { dryRun, force });
     } else {
       // No specific mode, show help
-      console.log(chalk.blue('🧹 Worktree Cleanup Help\\n'));
+      console.log(chalk.blue('🧹 Worktree Cleanup Help\n'));
       console.log('Usage examples:');
       console.log('  cdc cleanup my-feature           # Clean specific worktree');
       console.log('  cdc cleanup --list               # List all worktrees and artifacts');
@@ -107,10 +107,10 @@ export async function handleCleanup(worktreeName, options = {}) {
       console.log('  cdc cleanup --merged             # Clean merged branches only');
       console.log('  cdc cleanup --all                # Clean all worktrees');
       console.log('  cdc cleanup --dry-run --merged   # Preview what would be cleaned');
-      console.log('\\nOptions:');
+      console.log('\nOptions:');
       console.log('  --dry-run     Show what would be cleaned without doing it');
       console.log('  --force       Skip confirmation prompts');
-      console.log('\\nFor more help: cdc cleanup --help');
+      console.log('\nFor more help: cdc cleanup --help');
       return;
     }
     
@@ -136,11 +136,11 @@ async function listWorktreesAndArtifacts() {
     return;
   }
   
-  console.log('\\n' + chalk.blue('📁 Git Worktrees:'));
+  console.log('\n' + chalk.blue('📁 Git Worktrees:'));
   
   for (const worktree of worktrees) {
     const isMain = !worktree.branch; // Main repo doesn't have a branch
-    console.log('\\n' + chalk.cyan(`${worktree.name}`) + 
+    console.log('\n' + chalk.cyan(`${worktree.name}`) + 
                 (isMain ? ' (main repository)' : ` (branch: ${worktree.branch})`));
     console.log(`   Path: ${worktree.path}`);
     
@@ -156,17 +156,17 @@ async function listWorktreesAndArtifacts() {
   }
   
   if (!dockerAvailable) {
-    console.log('\\n' + chalk.yellow('⚠️  Docker not available - cannot check for Docker artifacts'));
+    console.log('\n' + chalk.yellow('⚠️  Docker not available - cannot check for Docker artifacts'));
   }
   
   // Summary
   const nonMainWorktrees = worktrees.filter(wt => wt.branch);
-  console.log('\\n' + chalk.blue('📊 Summary:'));
+  console.log('\n' + chalk.blue('📊 Summary:'));
   console.log(`   Total worktrees: ${worktrees.length}`);
   console.log(`   Feature branches: ${nonMainWorktrees.length}`);
   
   if (nonMainWorktrees.length > 0) {
-    console.log('\\n' + chalk.blue('💡 Next steps:'));
+    console.log('\n' + chalk.blue('💡 Next steps:'));
     console.log('   • Use "cdc cleanup --interactive" to selectively clean up');
     console.log('   • Use "cdc cleanup --merged" to clean merged branches');
     console.log('   • Use "cdc cleanup <worktree-name>" to clean a specific worktree');
@@ -195,8 +195,8 @@ async function interactiveCleanup(allWorktrees, options = {}) {
     });
   }
   
-  console.log('\\n' + chalk.blue('🧹 Interactive Worktree Cleanup'));
-  console.log('Select worktrees to clean up (🐳 = has Docker artifacts):\\n');
+  console.log('\n' + chalk.blue('🧹 Interactive Worktree Cleanup'));
+  console.log('Select worktrees to clean up (🐳 = has Docker artifacts):\n');
   
   const choices = worktreesWithArtifacts.map(wt => ({
     name: wt.displayName,
@@ -233,7 +233,7 @@ async function processWorktreeCleanup(targetWorktrees, options = {}) {
     return;
   }
   
-  console.log('\\n' + chalk.blue(`🧹 ${dryRun ? 'Preview' : 'Processing'} cleanup for ${targetWorktrees.length} worktree(s):`));
+  console.log('\n' + chalk.blue(`🧹 ${dryRun ? 'Preview' : 'Processing'} cleanup for ${targetWorktrees.length} worktree(s):`));
   
   let totalCleaned = 0;
   let successCount = 0;
@@ -243,7 +243,7 @@ async function processWorktreeCleanup(targetWorktrees, options = {}) {
     const worktree = targetWorktrees[i];
     const isLast = i === targetWorktrees.length - 1;
     
-    console.log('\\n' + chalk.cyan(`[${i + 1}/${targetWorktrees.length}] ${worktree.name}`) + 
+    console.log('\n' + chalk.cyan(`[${i + 1}/${targetWorktrees.length}] ${worktree.name}`) + 
                 ` (branch: ${worktree.branch})`);
     console.log(`   Path: ${worktree.path}`);
     
@@ -326,7 +326,7 @@ async function processWorktreeCleanup(targetWorktrees, options = {}) {
   }
   
   // Final summary
-  console.log('\\n' + chalk.blue('📊 Cleanup Summary:'));
+  console.log('\n' + chalk.blue('📊 Cleanup Summary:'));
   if (dryRun) {
     console.log(`   Would clean: ${successCount} worktrees`);
   } else {
