@@ -353,6 +353,8 @@ code . # Opens in DevContainer
 1. **Claude Code extension loads properly**
 2. **MCP servers are available** (check terminal for serena/context7 commands)
 3. **.claude directory is mounted** (check `/home/claude-user/.claude` exists)
+   - ⚠️ **Security Note**: This mounts your personal Claude Code data (API tokens, settings, credentials)
+   - See [Security Guide](SECURITY.md) for privacy implications and opt-out instructions
 4. **Your custom mounts and settings are preserved**
 5. **All your custom extensions still work**
 
@@ -387,7 +389,9 @@ npx claude-devcontainer rollback
 After successful migration, you'll have:
 
 ✅ **Enhanced AI Integration**: MCP servers provide better code analysis and assistance  
-✅ **User Customizations**: .claude directory allows persistent user preferences  
+✅ **User Customizations**: .claude directory allows persistent user preferences
+   - ⚠️ **Privacy Impact**: Personal Claude Code data is now mounted in containers
+   - See [Security Guide](SECURITY.md) to understand what data is exposed and how to control it  
 ✅ **Updated Tooling**: Latest base images with improved development tools  
 ✅ **Better Performance**: Optimized container startup and resource usage  
 ✅ **Future Compatibility**: Ready for upcoming Claude DevContainer features

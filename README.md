@@ -70,6 +70,8 @@ claude-devcontainer init
 cdc init
 ```
 
+> ⚠️ **Security Notice**: This will create a DevContainer that mounts your personal `~/.claude` directory (containing API tokens, settings, and credentials). See [Security & Privacy Notice](#-security--privacy-notice) for details and opt-out instructions.
+
 ### 5. Create Feature Worktrees (Recommended Workflow)
 ```bash
 # Create worktrees for feature development (all commands work identically)
@@ -416,6 +418,46 @@ claude-devcontainer init -s custom
 - **Complete Customization**: Custom agents, commands, and settings work seamlessly
 - **Zero Configuration**: Works immediately with your existing Claude setup
 - **Data Persistence**: Settings and project history survive container rebuilds
+
+## 🔒 Security & Privacy Notice
+
+**Important: Personal Data Mounting**
+
+By default, Claude DevContainer automatically mounts your personal `~/.claude` directory into development containers at `/home/claude-user/.claude`. This enables seamless Claude Code integration but involves mounting sensitive personal data.
+
+### What Gets Mounted
+Your `~/.claude` directory may contain:
+- **API tokens and credentials** for Claude and MCP servers
+- **Personal settings and preferences** for Claude Code
+- **MCP server configurations** with API keys
+- **Chat history and usage data** (depending on your Claude Code setup)
+- **Custom commands and project settings**
+
+### Security Implications
+- ✅ **Benefit**: Seamless Claude Code experience across all containers
+- ⚠️ **Risk**: Personal credentials accessible inside containers
+- ⚠️ **Risk**: Shared development environments may expose personal data
+- ⚠️ **Risk**: Container processes can access your Claude configuration
+
+### Best Practices
+1. **Review your `~/.claude` contents** before using shared/team development environments
+2. **Use separate Claude accounts** for sensitive vs. collaborative work
+3. **Consider disabling mounting** in untrusted environments (see opt-out below)
+4. **Regularly audit** what's stored in your `~/.claude` directory
+
+### Disabling .claude Mounting (Opt-Out)
+If you prefer not to mount personal data, edit your project's `devcontainer.json`:
+
+```json
+{
+  "mounts": [
+    // Comment out or remove the .claude mount:
+    // "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+  ]
+}
+```
+
+Note: Without mounting, you'll lose Claude Code customizations and may need to configure MCP servers manually inside containers.
 
 ## 🧪 Testing Your Setup
 
