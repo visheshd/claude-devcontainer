@@ -31,12 +31,18 @@ A comprehensive DevContainer-based development environment for local development
 cd tools/claude-devcontainer
 npm install
 npm link
+
+# Available commands after installation:
+# claude-devcontainer (full command)
+# cdc (short alias - saves typing!)
+# wt (standalone worktree command)
 ```
 
 ### 2. Choose Your Development Stack
 ```bash
-# See available stacks
+# See available stacks (both commands work identically)
 claude-devcontainer stacks
+cdc stacks
 ```
 
 ### 3. Build Required Images
@@ -56,20 +62,46 @@ Build only the images you need (saves time & disk space):
 ./build-all-images.sh --rebuild
 ```
 
-### 4. Create DevContainer
+### 4. Create Main Project DevContainer
 ```bash
 # Create new project with DevContainer (will prompt for stack selection)
 claude-devcontainer init
+# OR use the short alias:
+cdc init
 ```
 
-### 5. Open in VS Code
+### 5. Create Feature Worktrees (Recommended Workflow)
 ```bash
+# Create worktrees for feature development (all commands work identically)
+claude-devcontainer wt my-feature    # Full command
+cdc wt my-feature                   # Short alias
+wt my-feature                       # Standalone command
+
+# This creates: ../project-name-my-feature/ with DevContainer ready
+```
+
+### 6. Open Worktree in VS Code
+```bash
+# Navigate to your new worktree
+cd ../project-name-my-feature
+
 # Open in VS Code
 code .
 # Command Palette: "Dev Containers: Reopen in Container"
 ```
 
-### 6. Fix Existing DevContainers (Optional)
+### 7. Automatic Cleanup (Post-Merge)
+```bash
+# After merging your feature back to main:
+git merge my-feature
+
+# The post-merge hook will automatically prompt to:
+# 1. Remove the ../project-name-my-feature worktree
+# 2. Clean up Docker containers and images for that worktree
+# This prevents "zombie" Docker artifacts from accumulating
+```
+
+### 8. Fix Existing DevContainers (Optional)
 ```bash
 # If you have old devcontainer configs that lack worktree detection
 cd existing-project
@@ -86,22 +118,34 @@ claude-devcontainer migrate
 ```bash
 # Initialize a new DevContainer configuration
 claude-devcontainer init
+cdc init                                  # Short alias
+
+# Create git worktrees for feature development
+claude-devcontainer wt my-feature        # Full command
+cdc wt my-feature                        # Short alias  
+wt my-feature                            # Standalone command
 
 # Analyze existing DevContainer configuration
 claude-devcontainer check
+cdc check                                # Short alias
 
 # Upgrade existing DevContainer to latest features (includes worktree detection)
 claude-devcontainer migrate
+cdc migrate                              # Short alias
 
 # Detect project type
 claude-devcontainer detect
+cdc detect                               # Short alias
 
 # List available development stacks
 claude-devcontainer stacks
+cdc stacks                               # Short alias
 
 # Multi-service specific commands
-claude-devcontainer services              # List multi-service templates
-claude-devcontainer compose <template>    # Initialize with specific template
+claude-devcontainer services             # List multi-service templates
+cdc services                             # Short alias
+claude-devcontainer compose <template>   # Initialize with specific template
+cdc compose <template>                   # Short alias
 ```
 
 ## 🐳 Multi-Service Container Support
@@ -150,18 +194,21 @@ The Claude DevContainer system now supports **both single-container and multi-se
 **Web Application with Database:**
 ```bash
 claude-devcontainer init --stack web-db
+cdc init --stack web-db                    # Short alias
 # Creates Next.js + PostgreSQL + Redis setup
 ```
 
 **ML Application with Services:**
 ```bash
 claude-devcontainer compose python-ml-services
+cdc compose python-ml-services             # Short alias  
 # Creates Python ML + Vector DB + Redis Stack
 ```
 
 **Complete Full-Stack Application:**
 ```bash
 claude-devcontainer compose fullstack-nextjs
+cdc compose fullstack-nextjs               # Short alias
 # Creates comprehensive setup with all services
 ```
 
@@ -327,9 +374,12 @@ claude-devcontainer init -s custom
 ## 🚀 Features & Capabilities
 
 ### Git Worktree Integration
+- **CLI Worktree Creation**: Simple commands `cdc wt feature-name` or standalone `wt feature-name`
+- **Automatic Docker Setup**: Worktrees get full DevContainer configuration automatically  
+- **Intelligent Cleanup**: Post-merge hooks remove worktrees and clean up Docker artifacts
 - **Universal Detection**: Every devcontainer automatically detects main repos vs. worktrees
 - **Template Inheritance**: Single source of truth ensures all devcontainers get worktree support
-- **Automatic Migration**: Old devcontainers can be upgraded with `claude-devcontainer migrate`
+- **Automatic Migration**: Old devcontainers can be upgraded with `cdc migrate`
 - **Zero Configuration**: Works seamlessly without manual setup in any git repository
 - **Cross-Platform**: Full compatibility across Apple Silicon, Intel, and Linux
 - **Script Integration**: Git wrapper handles atomic worktree operations transparently
