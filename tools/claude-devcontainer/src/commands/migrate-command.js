@@ -1,7 +1,78 @@
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { MigrationEngine } from '../migrations/MigrationEngine.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Install post-merge git hook for integrated worktree and Docker cleanup
+ */
+async function installPostMergeHook() {
+  try {
+    // Check if we're in a git repository
+    const gitDir = '.git';
+    try {
+      await fs.access(gitDir);
+    } catch {
+      console.log(chalk.yellow('⚠️  Not in a git repository, skipping post-merge hook installation'));
+      return;
+    }
+
+    // Ensure hooks directory exists
+    const hooksDir = path.join(gitDir, 'hooks');
+    await fs.mkdir(hooksDir, { recursive: true });
+
+    // Path to our hook template - adjusted to point to the correct location
+    const hookTemplatePath = path.resolve(__dirname, '../../../../templates/hooks/post-merge');
+    const hookDestPath = path.join(hooksDir, 'post-merge');
+
+    // Check if hook template exists
+    try {
+      await fs.access(hookTemplatePath);
+    } catch {
+      console.log(chalk.yellow('⚠️  Post-merge hook template not found, skipping installation'));
+      return;
+    }
+
+    // Check if hook already exists
+    let hookExists = false;
+    try {
+      await fs.access(hookDestPath);
+      hookExists = true;
+    } catch {
+      // Hook doesn't exist, which is fine
+    }
+
+    if (hookExists) {
+      // Read existing hook to check if it's ours
+      const existingHook = await fs.readFile(hookDestPath, 'utf8');
+      if (existingHook.includes('integrated worktree removal and Docker cleanup')) {
+        console.log(chalk.blue('ℹ️  Post-merge hook already installed'));
+        return;
+      } else {
+        console.log(chalk.yellow('⚠️  Existing post-merge hook found, skipping installation to avoid conflicts'));
+        console.log(chalk.gray('   Manual installation: cp templates/hooks/post-merge .git/hooks/'));
+        return;
+      }
+    }
+
+    // Copy the hook template
+    await fs.copyFile(hookTemplatePath, hookDestPath);
+    
+    // Make the hook executable
+    await fs.chmod(hookDestPath, 0o755);
+
+    console.log(chalk.green('✅ Installed post-merge hook for worktree and Docker cleanup'));
+    console.log(chalk.gray('   The hook will prompt to remove worktrees and Docker artifacts after merges'));
+    
+  } catch (error) {
+    console.log(chalk.yellow(`⚠️  Failed to install post-merge hook: ${error.message}`));
+    console.log(chalk.gray('   Manual installation: cp templates/hooks/post-merge .git/hooks/'));
+  }
+}
 
 /**
  * Load DevContainer configuration from current directory
@@ -88,6 +159,9 @@ export async function handleMigrate(options = {}) {
       await fs.writeFile(configPath, JSON.stringify(results.config, null, 2));
       console.log(chalk.blue('\n📝 Updated .devcontainer/devcontainer.json'));
     }
+
+    // Install post-merge hook for integrated worktree and Docker cleanup
+    await installPostMergeHook();
   }
   
   return results;

@@ -14,6 +14,7 @@ The Claude DevContainer system has evolved to provide better developer experienc
 - **Git Wrapper Integration** - Seamless git operations across worktree boundaries with automatic path translation
 - **Automatic `.claude` directory mounting** for user customizations and preferences
 - **Integrated MCP (Model Context Protocol) servers** (serena and context7) for enhanced AI assistance
+- **Post-merge Git Hook** - Automatic cleanup of worktrees and Docker artifacts after merging feature branches
 - **Updated base images** with improved tooling and performance optimizations
 - **Better VS Code extension management** with automatic Claude Code extension inclusion
 - **Enhanced security and reliability** through updated dependencies and configurations
@@ -43,6 +44,18 @@ The migration tool will:
 3. Show you a preview of changes
 4. Create backups before making changes
 5. Apply the migration with your approval
+6. Install post-merge git hook for automatic worktree cleanup
+
+### Post-Merge Hook Benefits
+
+The migration includes an automatic installation of a post-merge git hook that provides:
+
+- **Automatic Worktree Cleanup** - Prompts to remove merged feature branch worktrees after `git merge`
+- **Docker Artifact Cleanup** - Removes associated Docker containers, volumes, and images for deleted worktrees
+- **Interactive Prompts** - Safe, user-controlled cleanup process with preview of what will be removed
+- **Zero Configuration** - Works automatically after installation, no additional setup required
+
+The hook integrates with the `cdc cleanup` command to provide the same functionality automatically triggered by git operations.
 
 ### Manual Migration
 
