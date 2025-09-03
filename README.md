@@ -90,14 +90,19 @@ code .
 # Command Palette: "Dev Containers: Reopen in Container"
 ```
 
-### 7. Automatic Cleanup (Post-Merge)
+### 7. Worktree Cleanup (Automatic + Manual)
 ```bash
-# After merging your feature back to main:
+# AUTOMATIC: After merging your feature back to main:
 git merge my-feature
+# The post-merge hook will automatically prompt to clean up
 
-# The post-merge hook will automatically prompt to:
-# 1. Remove the ../project-name-my-feature worktree
-# 2. Clean up Docker containers and images for that worktree
+# MANUAL: Clean up worktrees anytime with standalone commands:
+cdc cleanup --list                    # See all worktrees and Docker artifacts
+cdc cleanup my-feature                # Clean specific worktree
+cdc cleanup --interactive             # Choose which worktrees to clean
+cdc cleanup --merged                  # Clean all merged branches
+cdc cleanup --dry-run --merged        # Preview what would be cleaned
+
 # This prevents "zombie" Docker artifacts from accumulating
 ```
 
@@ -124,6 +129,13 @@ cdc init                                  # Short alias
 claude-devcontainer wt my-feature        # Full command
 cdc wt my-feature                        # Short alias  
 wt my-feature                            # Standalone command
+
+# Clean up git worktrees and Docker artifacts
+claude-devcontainer cleanup my-feature   # Clean specific worktree
+cdc cleanup --list                       # List all worktrees and artifacts
+cdc cleanup --interactive               # Interactive cleanup
+cdc cleanup --merged                     # Clean merged branches only
+cdc cleanup --dry-run --all             # Preview cleanup without doing it
 
 # Analyze existing DevContainer configuration
 claude-devcontainer check
@@ -550,6 +562,37 @@ npm install && npm link
 # Ensure build script is executable
 chmod +x build-all-images.sh
 chmod +x dockerfiles/*/build.sh
+```
+
+**"Zombie" Docker containers/images accumulating**
+```bash
+# List all worktrees and their Docker artifacts
+cdc cleanup --list
+
+# Clean up specific worktree artifacts
+cdc cleanup old-feature-name
+
+# Clean up all merged branches (safe)
+cdc cleanup --merged
+
+# Interactive cleanup - choose what to remove
+cdc cleanup --interactive
+
+# Preview what would be cleaned without doing it
+cdc cleanup --dry-run --all
+```
+
+**Worktree directory deleted but git still tracking it**
+```bash
+# List problematic worktrees
+git worktree list
+
+# Remove stale worktree references
+git worktree prune
+
+# Or use CLI to clean up including Docker artifacts
+cdc cleanup --list    # Find the problematic worktree
+cdc cleanup problem-worktree-name
 ```
 
 For more help, see [Building Images Locally](#-building-images-locally) section above.

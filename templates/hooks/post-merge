@@ -1,6 +1,6 @@
 #!/bin/bash
 # Post-merge hook for integrated worktree removal and Docker cleanup
-# This hook detects merged branches, removes their worktrees, and cleans up VS Code Dev Container artifacts
+# Uses shared cleanup utilities from claude-devcontainer CLI
 
 set -e
 
@@ -40,21 +40,6 @@ print_error() {
     log_message "ERROR: $1"
 }
 
-# Function to check if Docker is available
-check_docker() {
-    if ! command -v docker >/dev/null 2>&1; then
-        print_warning "Docker not found, Docker cleanup will be skipped"
-        return 1
-    fi
-    
-    if ! docker info >/dev/null 2>&1; then
-        print_warning "Docker daemon not accessible, Docker cleanup will be skipped"
-        return 1
-    fi
-    
-    return 0
-}
-
 # Function to get the branch that was just merged
 get_merged_branch() {
     # Get the merge commit message
@@ -79,20 +64,71 @@ get_merged_branch() {
     echo "$branch_name"
 }
 
-# Function to find worktrees using a specific branch
-find_worktrees_for_branch() {
-    local branch_name="$1"
-    local worktrees=()
+# Function to find the claude-devcontainer CLI
+find_claude_cli() {
+    # Try to find claude-devcontainer or cdc in various locations
+    local cli_paths=(
+        "$(which claude-devcontainer 2>/dev/null || true)"
+        "$(which cdc 2>/dev/null || true)"
+        "./tools/claude-devcontainer/src/index.js"
+        "../tools/claude-devcontainer/src/index.js"
+        "../../tools/claude-devcontainer/src/index.js"
+    )
     
-    if [ -z "$branch_name" ]; then
-        return 0
+    for cli_path in "${cli_paths[@]}"; do
+        if [ -n "$cli_path" ] && [ -f "$cli_path" ]; then
+            echo "$cli_path"
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# Function to run cleanup using claude-devcontainer CLI
+run_cli_cleanup() {
+    local branch_name="$1"
+    
+    # Find the CLI
+    local cli_path
+    cli_path=$(find_claude_cli)
+    
+    if [ $? -ne 0 ]; then
+        print_warning "Claude DevContainer CLI not found, falling back to basic git cleanup"
+        return 1
     fi
     
-    # Parse git worktree list output
+    print_status "Using Claude DevContainer CLI for cleanup"
+    
+    # Run the cleanup command
+    if [[ "$cli_path" == *.js ]]; then
+        # Node.js script
+        if node "$cli_path" cleanup "$branch_name" --force 2>/dev/null; then
+            return 0
+        fi
+    else
+        # Binary/executable
+        if "$cli_path" cleanup "$branch_name" --force 2>/dev/null; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
+# Fallback function for basic git worktree cleanup (no Docker cleanup)
+fallback_git_cleanup() {
+    local branch_name="$1"
+    
+    print_status "Running fallback git-only cleanup"
+    
+    # Get worktrees for this branch
+    local worktrees=()
+    local current_worktree_path=""
+    
     while IFS= read -r line; do
         if [[ $line == worktree* ]]; then
-            local current_worktree_path="${line#worktree }"
-            # Continue reading to find the branch for this worktree
+            current_worktree_path="${line#worktree }"
             continue
         elif [[ $line == branch* ]] && [[ -n "$current_worktree_path" ]]; then
             local worktree_branch="${line#branch refs/heads/}"
@@ -103,147 +139,37 @@ find_worktrees_for_branch() {
         fi
     done < <(git worktree list --porcelain 2>/dev/null || true)
     
-    printf '%s\n' "${worktrees[@]}"
-}
-
-# Function to get Docker artifacts for a worktree
-get_docker_artifacts() {
-    local worktree_name="$1"
-    local artifacts_found=false
-    
-    # Check for containers
-    local containers
-    containers=$(docker ps -a --filter "name=${worktree_name}_devcontainer" --format "{{.Names}}" 2>/dev/null || true)
-    if [ -n "$containers" ]; then
-        echo "Containers:"
-        echo "$containers" | sed 's/^/  /'
-        artifacts_found=true
-    fi
-    
-    # Check for images  
-    local images
-    images=$(docker images --filter "reference=vsc-${worktree_name}-*" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null || true)
-    if [ -n "$images" ]; then
-        echo "Images:"
-        echo "$images" | sed 's/^/  /'
-        artifacts_found=true
-    fi
-    
-    # Check for volumes
-    local volumes
-    volumes=$(docker volume ls --filter "name=vsc-${worktree_name}" --format "{{.Name}}" 2>/dev/null || true)
-    if [ -n "$volumes" ]; then
-        echo "Volumes:"
-        echo "$volumes" | sed 's/^/  /'
-        artifacts_found=true
-    fi
-    
-    # Check for networks
-    local networks
-    networks=$(docker network ls --filter "name=${worktree_name}_devcontainer" --format "{{.Name}}" 2>/dev/null || true)
-    if [ -n "$networks" ]; then
-        echo "Networks:"
-        echo "$networks" | sed 's/^/  /'
-        artifacts_found=true
-    fi
-    
-    $artifacts_found
-}
-
-# Function to clean up Docker artifacts
-cleanup_docker_artifacts() {
-    local worktree_name="$1"
-    local cleanup_count=0
-    
-    print_status "Cleaning up Docker artifacts for worktree: $worktree_name"
-    
-    # Remove containers
-    local containers
-    containers=$(docker ps -a --filter "name=${worktree_name}_devcontainer" -q 2>/dev/null || true)
-    if [ -n "$containers" ]; then
-        echo "$containers" | xargs docker rm -f >/dev/null 2>&1 && {
-            local container_count
-            container_count=$(echo "$containers" | wc -l)
-            print_success "✓ Removed $container_count containers"
-            ((cleanup_count += container_count))
-        }
-    fi
-    
-    # Remove images
-    local images
-    images=$(docker images --filter "reference=vsc-${worktree_name}-*" -q 2>/dev/null || true)
-    if [ -n "$images" ]; then
-        echo "$images" | xargs docker rmi -f >/dev/null 2>&1 && {
-            local image_count
-            image_count=$(echo "$images" | wc -l)
-            print_success "✓ Removed $image_count images"
-            ((cleanup_count += image_count))
-        }
-    fi
-    
-    # Remove volumes
-    local volumes
-    volumes=$(docker volume ls --filter "name=vsc-${worktree_name}" -q 2>/dev/null || true)
-    if [ -n "$volumes" ]; then
-        echo "$volumes" | xargs docker volume rm >/dev/null 2>&1 && {
-            local volume_count
-            volume_count=$(echo "$volumes" | wc -l)
-            print_success "✓ Removed $volume_count volumes"
-            ((cleanup_count += volume_count))
-        }
-    fi
-    
-    # Remove networks (be careful with default networks)
-    local networks
-    networks=$(docker network ls --filter "name=${worktree_name}_devcontainer" --format "{{.Name}}" 2>/dev/null | grep -v "^bridge$\|^host$\|^none$" || true)
-    if [ -n "$networks" ]; then
-        echo "$networks" | xargs docker network rm >/dev/null 2>&1 && {
-            local network_count
-            network_count=$(echo "$networks" | wc -l)
-            print_success "✓ Removed $network_count networks"
-            ((cleanup_count += network_count))
-        }
-    fi
-    
-    if [ $cleanup_count -gt 0 ]; then
-        print_success "Cleaned up $cleanup_count Docker artifacts"
-    else
-        print_status "No Docker artifacts found to clean up"
-    fi
-}
-
-# Function to prompt user for confirmation
-prompt_user_confirmation() {
-    local worktree_path="$1"
-    local worktree_name
-    worktree_name=$(basename "$worktree_path")
-    
-    echo ""
-    echo -e "${BLUE}🔍 Found worktree for merged branch:${NC}"
-    echo "   Path: $worktree_path"
-    echo ""
-    
-    # Check for Docker artifacts
-    if check_docker; then
-        echo -e "${BLUE}🗑️  Docker artifacts that will be removed:${NC}"
-        if get_docker_artifacts "$worktree_name"; then
-            echo ""
-        else
-            echo "   No Docker artifacts found"
-            echo ""
-        fi
-    fi
-    
-    # Prompt for confirmation
-    echo -e "${YELLOW}Remove worktree and associated Docker resources?${NC}"
-    read -p "Remove '$worktree_name'? (y/N): " -n 1 -r
-    echo ""
-    
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ ${#worktrees[@]} -eq 0 ]; then
+        print_status "No worktrees found for branch '$branch_name'"
         return 0
-    else
-        return 1
     fi
+    
+    # Remove worktrees
+    for worktree_path in "${worktrees[@]}"; do
+        local worktree_name
+        worktree_name=$(basename "$worktree_path")
+        
+        echo ""
+        echo -e "${BLUE}🔍 Found worktree for merged branch:${NC}"
+        echo "   Path: $worktree_path"
+        echo ""
+        echo -e "${YELLOW}Remove worktree? Docker artifacts will NOT be cleaned up.${NC}"
+        read -p "Remove '$worktree_name'? (y/N): " -n 1 -r
+        echo ""
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            if git worktree remove "$worktree_path" 2>/dev/null; then
+                print_success "✅ Removed worktree: $worktree_name"
+                print_warning "⚠️  Docker artifacts were not cleaned up (CLI not available)"
+                print_status "💡 To clean Docker artifacts, install claude-devcontainer CLI and run:"
+                print_status "   cdc cleanup --list  # to see remaining artifacts"
+            else
+                print_error "Failed to remove worktree: $worktree_path"
+            fi
+        else
+            print_status "Skipped worktree: $worktree_name"
+        fi
+    done
 }
 
 # Main execution
@@ -270,47 +196,15 @@ main() {
     
     print_status "Detected merged branch: $merged_branch"
     
-    # Find worktrees using this branch
-    local worktrees=()
-    while IFS= read -r worktree_path; do
-        if [ -n "$worktree_path" ]; then
-            worktrees+=("$worktree_path")
-        fi
-    done < <(find_worktrees_for_branch "$merged_branch")
-    
-    if [ ${#worktrees[@]} -eq 0 ]; then
-        print_status "No worktrees found for merged branch '$merged_branch'"
-        log_message "No worktrees to clean up"
-        exit 0
+    # Try to use claude-devcontainer CLI first
+    if run_cli_cleanup "$merged_branch"; then
+        print_success "Post-merge cleanup completed using Claude DevContainer CLI!"
+    else
+        # Fall back to basic git cleanup
+        fallback_git_cleanup "$merged_branch"
+        print_success "Post-merge git cleanup completed!"
     fi
     
-    # Process each worktree
-    for worktree_path in "${worktrees[@]}"; do
-        if prompt_user_confirmation "$worktree_path"; then
-            local worktree_name
-            worktree_name=$(basename "$worktree_path")
-            
-            print_status "Removing worktree: $worktree_path"
-            
-            # Remove the worktree
-            if git worktree remove "$worktree_path" 2>/dev/null; then
-                print_success "✅ Removed worktree: $worktree_name"
-                
-                # Clean up Docker artifacts if Docker is available
-                if check_docker; then
-                    cleanup_docker_artifacts "$worktree_name"
-                fi
-            else
-                print_error "Failed to remove worktree: $worktree_path"
-                print_warning "Skipping Docker cleanup for failed worktree removal"
-            fi
-        else
-            print_status "Skipped worktree: $(basename "$worktree_path")"
-        fi
-        echo ""
-    done
-    
-    print_success "Post-merge cleanup completed!"
     log_message "Post-merge hook completed"
 }
 

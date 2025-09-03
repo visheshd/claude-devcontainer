@@ -11,6 +11,7 @@ import { handleStacks } from './commands/stacks-command.js';
 import { handleServices } from './commands/services-command.js';
 import { handleComposeTemplate } from './commands/compose-command.js';
 import { handleWt } from './commands/wt-command.js';
+import { handleCleanup } from './commands/cleanup-command.js';
 
 // Import error handling
 import { formatErrorForCLI } from './core/devcontainer-error.js';
@@ -163,6 +164,25 @@ function createProgram() {
     .action(async (featureName, branchRef) => {
       try {
         await handleWt(featureName, branchRef);
+      } catch (error) {
+        console.error(chalk.red(formatErrorForCLI(error)));
+        process.exit(1);
+      }
+    });
+
+  // Cleanup command
+  program
+    .command('cleanup [worktree-name]')
+    .description('Clean up git worktrees and associated Docker artifacts')
+    .option('-l, --list', 'List all worktrees and their Docker artifacts')
+    .option('-i, --interactive', 'Interactive cleanup mode')
+    .option('-m, --merged', 'Clean up worktrees for merged branches only')
+    .option('-a, --all', 'Clean up all worktrees (with confirmation)')
+    .option('-d, --dry-run', 'Show what would be cleaned without doing it')
+    .option('-f, --force', 'Skip confirmation prompts')
+    .action(async (worktreeName, options) => {
+      try {
+        await handleCleanup(worktreeName, options);
       } catch (error) {
         console.error(chalk.red(formatErrorForCLI(error)));
         process.exit(1);
