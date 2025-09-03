@@ -1,14 +1,41 @@
 #!/bin/bash
 # Startup script for Claude Base Image
-# Configures environment and starts Claude Code with proper authentication
+# Configures environment and starts Claude Code with persistent authentication
 
-# Check for existing authentication
-if [ -f "$HOME/.claude/.credentials.json" ]; then
-    echo "✓ Found existing Claude authentication"
-else
-    echo "No existing authentication found - you will need to log in"
-    echo "Your login will be saved for future sessions"
-fi
+# Function to check authentication files
+check_auth() {
+    local auth_found=false
+    
+    # Check for .credentials.json (OAuth/API key auth)
+    if [ -f "$HOME/.claude/.credentials.json" ]; then
+        echo "✓ Found OAuth/API credentials at ~/.claude/.credentials.json"
+        auth_found=true
+    fi
+    
+    # Check for .claude.json (legacy auth format)
+    if [ -f "$HOME/.claude.json" ]; then
+        echo "✓ Found legacy auth at ~/.claude.json"
+        # Copy to modern location if not already there
+        if [ ! -f "$HOME/.claude/.credentials.json" ] && [ -s "$HOME/.claude.json" ]; then
+            cp "$HOME/.claude.json" "$HOME/.claude/.credentials.json"
+            echo "  Migrated auth to ~/.claude/.credentials.json"
+        fi
+        auth_found=true
+    fi
+    
+    if [ "$auth_found" = true ]; then
+        echo "✓ Authentication available - no login required"
+        return 0
+    else
+        echo "⚠ No authentication found - you will need to log in"
+        echo "  Your login will be saved for future container sessions"
+        return 1
+    fi
+}
+
+# Check and handle authentication
+check_auth
+AUTH_STATUS=$?
 
 # Check for mounted Claude directory
 if [ -d "$HOME/.claude" ] && [ "$(ls -A $HOME/.claude 2>/dev/null)" ]; then
@@ -26,4 +53,14 @@ else
 fi
 
 echo "Starting Claude Code..."
-exec claude --dangerously-skip-permissions "$@"
+
+# Use appropriate authentication flags based on what we found
+if [ $AUTH_STATUS -eq 0 ]; then
+    # Authentication found - start with persistent auth support
+    echo "  Using persistent authentication"
+    exec claude --dangerously-skip-permissions --no-auth-prompt "$@"
+else
+    # No auth found - will need to authenticate interactively
+    echo "  Will prompt for authentication on first use"
+    exec claude --dangerously-skip-permissions "$@"
+fi

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  claude-docker:
+    build: .
+    container_name: claude-docker-persistent
+    volumes:
+      # Project directory
+      - .:/workspace:cached
+      
+      # Persistent authentication - dedicated volume for auth files
+      - claude-auth:/home/claude-user/.claude:rw
+      
+      # Host SSH keys for git operations
+      - ~/.ssh:/home/claude-user/.ssh:ro
+      
+      # Optional: Host git config
+      - ~/.gitconfig:/home/claude-user/.gitconfig:ro
+      
+    environment:
+      - CLAUDE_AUTH_PERSIST=true
+      
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    
+    # Network configuration for MCP servers
+    ports:
+      - "8000:8000"  # For any web services
+      
+volumes:
+  # Dedicated authentication volume that persists across container rebuilds
+  claude-auth:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${HOME}/.claude-docker/auth
+      o: bind

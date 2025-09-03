@@ -14,6 +14,7 @@
   // For regular repos: mounts the repo itself at /main-repo (harmless)
   // For worktrees: setup script will update this to point to actual main repo
   "mounts": [
+    "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind",
     "source=${localWorkspaceFolder},target=/main-repo,type=bind,consistency=cached"
   ],
   

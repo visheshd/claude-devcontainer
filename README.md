@@ -419,6 +419,52 @@ claude-devcontainer init -s custom
 - **Zero Configuration**: Works immediately with your existing Claude setup
 - **Data Persistence**: Settings and project history survive container rebuilds
 
+## 🔐 Persistent Authentication (No Re-login Required)
+
+**NEW**: Claude Docker now supports persistent authentication like conductor.build - no more re-logging into Claude Code every time you restart containers!
+
+### Quick Setup for Persistent Authentication
+```bash
+# One-time setup: migrate your existing authentication
+./scripts/setup-persistent-auth.sh
+
+# Use the persistent auth wrapper (recommended)
+./scripts/claude-docker.sh
+
+# Your authentication persists across container restarts!
+```
+
+### How It Works
+- **Persistent Storage**: Authentication files stored in `~/.claude-docker/auth/`
+- **Automatic Detection**: Container startup checks for existing credentials
+- **Legacy Support**: Works with both `.credentials.json` (OAuth/API) and `.claude.json` formats  
+- **SSH Integration**: Git operations work seamlessly with persistent SSH keys
+- **Volume Mounting**: Dedicated authentication volumes prevent data loss
+
+### Docker Compose with Persistent Auth
+```bash
+# Use the persistent auth docker-compose configuration
+docker-compose -f docker-compose.persistent-auth.yml up
+
+# Or use the wrapper script (recommended)
+./scripts/claude-docker.sh --memory 16g --gpus all
+```
+
+### Manual Setup (Advanced)
+If you prefer manual configuration, see the authentication mounting strategy:
+```yaml
+volumes:
+  - ~/.claude-docker/auth:/home/claude-user/.claude:rw
+  - ~/.claude-docker/ssh:/home/claude-user/.ssh:rw
+```
+
+### Benefits
+✅ **No Re-login**: Authentication persists across container restarts  
+✅ **Conductor.build Compatible**: Same persistent auth experience  
+✅ **Automatic Migration**: Seamlessly migrates existing authentication  
+✅ **Multiple Formats**: Supports OAuth, API keys, and legacy authentication  
+✅ **Git Integration**: Persistent SSH keys for seamless git operations  
+
 ## 🔒 Security & Privacy Notice
 
 **Important: Personal Data Mounting**
