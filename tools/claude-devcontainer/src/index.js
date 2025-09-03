@@ -10,6 +10,7 @@ import { handleDetect } from './commands/detect-command.js';
 import { handleStacks } from './commands/stacks-command.js';
 import { handleServices } from './commands/services-command.js';
 import { handleComposeTemplate } from './commands/compose-command.js';
+import { handleWt } from './commands/wt-command.js';
 
 // Import error handling
 import { formatErrorForCLI } from './core/devcontainer-error.js';
@@ -21,9 +22,12 @@ import { formatErrorForCLI } from './core/devcontainer-error.js';
 function createProgram() {
   const program = new Command();
   
+  // Determine which command name was used to call the program
+  const commandName = process.argv[1]?.includes('/cdc') || process.argv[0]?.includes('cdc') ? 'cdc' : 'claude-devcontainer';
+  
   program
-    .name('claude-devcontainer')
-    .description('Claude DevContainer CLI - Create and manage DevContainer configurations')
+    .name(commandName)
+    .description('Claude DevContainer CLI - Create and manage DevContainer configurations\nAlias: cdc (short for claude-devcontainer)')
     .version('1.0.0');
 
   // Global error handler
@@ -146,6 +150,19 @@ function createProgram() {
     .action(async (template, options) => {
       try {
         await handleComposeTemplate(template, options);
+      } catch (error) {
+        console.error(chalk.red(formatErrorForCLI(error)));
+        process.exit(1);
+      }
+    });
+
+  // Worktree command
+  program
+    .command('wt <feature-name> [branch-ref]')
+    .description('Create a new git worktree for feature development')
+    .action(async (featureName, branchRef) => {
+      try {
+        await handleWt(featureName, branchRef);
       } catch (error) {
         console.error(chalk.red(formatErrorForCLI(error)));
         process.exit(1);

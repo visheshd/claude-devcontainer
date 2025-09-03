@@ -1,0 +1,16 @@
+#!/usr/bin/env node
+
+// Standalone worktree command - calls the main CLI with 'wt' command
+import('../src/index.js').then(module => {
+  // Set up argv to call the wt command
+  const originalArgv = process.argv;
+  process.argv = ['node', 'wt', 'wt', ...originalArgv.slice(2)];
+  
+  // Call the default export (main function)
+  if (module.default && typeof module.default === 'function') {
+    module.default();
+  }
+}).catch(error => {
+  console.error('Error starting wt command:', error);
+  process.exit(1);
+});

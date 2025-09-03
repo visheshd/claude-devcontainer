@@ -5,7 +5,9 @@
   "type": "module",
   "main": "index.js",
   "bin": {
-    "claude-devcontainer": "./bin/claude-devcontainer"
+    "claude-devcontainer": "./bin/claude-devcontainer",
+    "cdc": "./bin/claude-devcontainer",
+    "wt": "./bin/wt"
   },
   "scripts": {
     "build": "npm run build:cli",
@@ -13,7 +15,7 @@
     "dev": "node src/index.js",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
     "lint": "eslint src/",
-    "prepare": "chmod +x bin/claude-devcontainer"
+    "prepare": "chmod +x bin/claude-devcontainer bin/wt"
   },
   "keywords": [
     "claude",
