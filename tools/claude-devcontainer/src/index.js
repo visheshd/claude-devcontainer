@@ -180,6 +180,7 @@ function createProgram() {
     .option('-a, --all', 'Clean up all worktrees (with confirmation)')
     .option('-d, --dry-run', 'Show what would be cleaned without doing it')
     .option('-f, --force', 'Skip confirmation prompts')
+    .option('--force-dirty', 'Force removal of worktrees with uncommitted changes')
     .option('-v, --verbose', 'Show detailed debug information')
     .action(async (worktreeName, options) => {
       try {

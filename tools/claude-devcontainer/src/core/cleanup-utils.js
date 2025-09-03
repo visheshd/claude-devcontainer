@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'child_process';
+import path from 'path';
 import chalk from 'chalk';
 import { generateDockerArtifactNames, loadWorktreeConfig } from './worktree-config.js';
 import { safeGitExec } from './secure-shell.js';
@@ -43,6 +44,9 @@ export async function checkDocker() {
 
 /**
  * Get all git worktrees with their branch information
+ * Uses Git's worktree list order as single source of truth:
+ * - First worktree is ALWAYS the main repository
+ * - Subsequent worktrees are additional worktrees created with `git worktree add`
  */
 export function getAllWorktrees() {
   try {
@@ -64,7 +68,8 @@ export function getAllWorktrees() {
           path: trimmed.replace('worktree ', ''),
           name: null,
           branch: null,
-          head: null
+          head: null,
+          isMainRepo: false // Will be set to true for first worktree
         };
       } else if (trimmed.startsWith('branch ')) {
         currentWorktree.branch = trimmed.replace('branch refs/heads/', '');
@@ -78,10 +83,22 @@ export function getAllWorktrees() {
       worktrees.push(currentWorktree);
     }
     
-    // Add worktree names (basename of path)
-    worktrees.forEach(wt => {
+    // Mark the first worktree as the main repository (single source of truth)
+    if (worktrees.length > 0) {
+      worktrees[0].isMainRepo = true;
+      gitLogger.info(`Main repository identified: ${worktrees[0].path}`);
+    }
+    
+    // Add worktree names (basename of path) and log additional worktrees
+    worktrees.forEach((wt, index) => {
       wt.name = wt.path.split('/').pop();
+      if (!wt.isMainRepo) {
+        gitLogger.info(`Additional worktree found: ${wt.name} at ${wt.path} (branch: ${wt.branch || 'unknown'})`);
+      }
     });
+    
+    const additionalWorktrees = worktrees.filter(wt => !wt.isMainRepo);
+    gitLogger.info(`Total: ${worktrees.length} worktrees (1 main repo + ${additionalWorktrees.length} additional)`);
     
     return worktrees;
   } catch (error) {
@@ -358,17 +375,71 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
 
 /**
  * Remove a git worktree
+ * @param {string} worktreePath - Path to the worktree to remove
+ * @param {boolean} dryRun - Whether this is a dry run
+ * @param {string} gitRoot - Optional git repository root (will be auto-detected if not provided)
+ * @param {boolean} force - Whether to force removal even if worktree has changes
+ * @returns {Object} Result object with success status and details
  */
-export function removeWorktree(worktreePath, dryRun = false) {
+export function removeWorktree(worktreePath, dryRun = false, gitRoot = null, force = false) {
   try {
     if (dryRun) {
       printStatus(`Would remove worktree: ${worktreePath}`);
       return { success: true };
     }
     
-    safeGitExec('worktree', ['remove', worktreePath], { stdio: 'ignore' });
-    return { success: true };
+    // Additional safety check: Verify this is not the main repository by checking all worktrees
+    const allWorktrees = getAllWorktrees();
+    const mainRepo = allWorktrees.find(wt => wt.isMainRepo);
+    if (mainRepo && worktreePath === mainRepo.path) {
+      throw new Error(`CRITICAL SAFETY ERROR: Attempted to remove main repository at ${worktreePath}! This operation is forbidden.`);
+    }
+    
+    gitLogger.info(`Removing worktree: ${worktreePath}`);
+    
+    // Use provided gitRoot or try to detect it
+    if (!gitRoot) {
+      try {
+        gitRoot = getGitRepositoryRoot();
+        gitLogger.info(`Auto-detected git repository root: ${gitRoot}`);
+      } catch (error) {
+        gitLogger.error(`Cannot determine git repository root: ${error.message}`);
+        throw error;
+      }
+    } else {
+      gitLogger.info(`Using provided git repository root: ${gitRoot}`);
+    }
+    
+    // Build command arguments
+    const args = ['remove'];
+    if (force) {
+      args.push('--force');
+      gitLogger.info(`Force removal enabled for worktree: ${worktreePath}`);
+    }
+    args.push(worktreePath);
+    
+    // Execute the git worktree remove command from the repository root
+    const result = safeGitExec('worktree', args, { 
+      encoding: 'utf8',
+      cwd: gitRoot,
+      timeout: 60000 // Increase timeout to 60 seconds for worktree operations
+    });
+    
+    gitLogger.info(`Worktree removal completed: ${worktreePath}`);
+    return { success: true, output: result };
   } catch (error) {
+    gitLogger.error(`Failed to remove worktree ${worktreePath}: ${error.message}`);
+    
+    // Check if the error is due to dirty worktree
+    if (error.message.includes('contains modified or untracked files')) {
+      return { 
+        success: false, 
+        error: error.message,
+        requiresForce: true,
+        isDirty: true
+      };
+    }
+    
     return { success: false, error: error.message };
   }
 }
@@ -382,6 +453,187 @@ export function isGitRepository() {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Check if we're in the main repository directory (not a worktree)
+ * Uses Git's official path resolution to compare git-dir and git-common-dir
+ * Main repository: --git-dir === --git-common-dir
+ * Worktree: --git-dir !== --git-common-dir
+ */
+export function isInMainRepository() {
+  try {
+    const gitDir = safeGitExec('rev-parse', ['--git-dir'], { encoding: 'utf8' }).trim();
+    const commonDir = safeGitExec('rev-parse', ['--git-common-dir'], { encoding: 'utf8' }).trim();
+    
+    const isMainRepo = gitDir === commonDir;
+    
+    gitLogger.info(`Git path comparison: git-dir='${gitDir}', common-dir='${commonDir}' - ${isMainRepo ? 'main repository' : 'worktree'}`);
+    return isMainRepo;
+    
+  } catch (error) {
+    gitLogger.error(`Failed to check repository structure: ${error.message}`);
+    return false;
+  }
+}
+
+/**
+ * Get the main repository path using Git's official path resolution
+ * Uses --git-common-dir to find the shared Git directory, then gets its parent
+ */
+export function getMainRepositoryPath() {
+  try {
+    const commonDir = safeGitExec('rev-parse', ['--git-common-dir'], { encoding: 'utf8' }).trim();
+    
+    // Convert relative path to absolute if needed
+    const absoluteCommonDir = path.resolve(commonDir);
+    
+    // The main repository directory is the parent of the .git directory
+    const mainRepoPath = path.dirname(absoluteCommonDir);
+    
+    gitLogger.info(`Main repository path determined: ${mainRepoPath} (from git-common-dir: ${commonDir})`);
+    return mainRepoPath;
+    
+  } catch (error) {
+    throw new Error(`Failed to determine main repository path: ${error.message}`);
+  }
+}
+
+/**
+ * Get the git repository root directory
+ */
+export function getGitRepositoryRoot() {
+  try {
+    const root = safeGitExec('rev-parse', ['--show-toplevel'], { encoding: 'utf8' }).trim();
+    return root;
+  } catch (error) {
+    throw new Error(`Not in a git repository: ${error.message}`);
+  }
+}
+
+/**
+ * Check the status of a worktree to detect modified/untracked files
+ * @param {string} worktreePath - Path to the worktree to check
+ * @returns {Object} Status information about the worktree
+ */
+export function checkWorktreeStatus(worktreePath) {
+  try {
+    gitLogger.info(`Checking status of worktree: ${worktreePath}`);
+    
+    // Use git status --porcelain to get machine-readable output
+    const statusOutput = safeGitExec('status', ['--porcelain'], { 
+      encoding: 'utf8',
+      cwd: worktreePath,
+      timeout: 30000
+    });
+    
+    const statusLines = statusOutput.trim().split('\n').filter(line => line);
+    
+    const status = {
+      isClean: statusLines.length === 0,
+      modifiedFiles: [],
+      untrackedFiles: [],
+      stagedFiles: [],
+      deletedFiles: [],
+      totalChanges: statusLines.length
+    };
+    
+    // Parse git status output
+    for (const line of statusLines) {
+      const statusCode = line.substring(0, 2);
+      const fileName = line.substring(3);
+      
+      // First character: staged changes, Second character: working tree changes
+      const staged = statusCode[0];
+      const workingTree = statusCode[1];
+      
+      if (workingTree === 'M') {
+        status.modifiedFiles.push(fileName);
+      } else if (workingTree === 'D') {
+        status.deletedFiles.push(fileName);
+      } else if (statusCode === '??') {
+        status.untrackedFiles.push(fileName);
+      }
+      
+      if (staged !== ' ' && staged !== '?') {
+        status.stagedFiles.push(fileName);
+      }
+    }
+    
+    gitLogger.info(`Worktree status: ${status.isClean ? 'clean' : `${status.totalChanges} changes`}`);
+    return status;
+    
+  } catch (error) {
+    gitLogger.error(`Failed to check worktree status ${worktreePath}: ${error.message}`);
+    // If we can't check status, assume it's not clean to be safe
+    return {
+      isClean: false,
+      modifiedFiles: [],
+      untrackedFiles: [],
+      stagedFiles: [],
+      deletedFiles: [],
+      totalChanges: 0,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Display worktree status in a formatted way
+ * @param {Object} status - Status object from checkWorktreeStatus
+ */
+export function displayWorktreeStatus(status) {
+  if (status.isClean) {
+    console.log('   ✅ Worktree is clean (no changes)');
+    return;
+  }
+  
+  if (status.error) {
+    console.log(`   ⚠️  Could not check worktree status: ${status.error}`);
+    return;
+  }
+  
+  console.log('   ⚠️  Worktree contains uncommitted changes:');
+  
+  if (status.modifiedFiles.length > 0) {
+    console.log(`     Modified files (${status.modifiedFiles.length}):`);
+    status.modifiedFiles.slice(0, 5).forEach(file => {
+      console.log(`       • ${file}`);
+    });
+    if (status.modifiedFiles.length > 5) {
+      console.log(`       ... and ${status.modifiedFiles.length - 5} more`);
+    }
+  }
+  
+  if (status.untrackedFiles.length > 0) {
+    console.log(`     Untracked files (${status.untrackedFiles.length}):`);
+    status.untrackedFiles.slice(0, 5).forEach(file => {
+      console.log(`       • ${file}`);
+    });
+    if (status.untrackedFiles.length > 5) {
+      console.log(`       ... and ${status.untrackedFiles.length - 5} more`);
+    }
+  }
+  
+  if (status.stagedFiles.length > 0) {
+    console.log(`     Staged files (${status.stagedFiles.length}):`);
+    status.stagedFiles.slice(0, 5).forEach(file => {
+      console.log(`       • ${file}`);
+    });
+    if (status.stagedFiles.length > 5) {
+      console.log(`       ... and ${status.stagedFiles.length - 5} more`);
+    }
+  }
+  
+  if (status.deletedFiles.length > 0) {
+    console.log(`     Deleted files (${status.deletedFiles.length}):`);
+    status.deletedFiles.slice(0, 5).forEach(file => {
+      console.log(`       • ${file}`);
+    });
+    if (status.deletedFiles.length > 5) {
+      console.log(`       ... and ${status.deletedFiles.length - 5} more`);
+    }
   }
 }
 

@@ -74,14 +74,49 @@ export function safeGitExec(subcommand, args = [], options = {}) {
     throw new Error(`Git subcommand '${subcommand}' is not allowed`);
   }
   
-  // Validate and escape all arguments
-  const escapedArgs = args.map((arg, index) => {
+  // Define known safe git command options that don't need escaping
+  const safeGitOptions = {
+    worktree: ['add', 'list', 'remove', 'move', 'prune', 'lock', 'unlock', '--porcelain', '--verbose', '-v', '--force', '-f'],
+    branch: ['--list', '--all', '--merged', '--no-merged', '--contains', '--points-at', '--format', '-r', '-a', '-v', '--verbose'],
+    'rev-parse': ['--git-dir', '--show-toplevel', '--abbrev-ref', '--short', '--verify', '--quiet', '-q'],
+    'show-ref': ['--verify', '--quiet', '-q', '--heads', '--tags'],
+    fetch: ['--all', '--prune', '--dry-run', '--verbose', '-v'],
+    status: ['--porcelain', '--short', '-s', '--branch', '-b'],
+    log: ['--oneline', '--graph', '--decorate', '--all', '--format', '--pretty'],
+    'symbolic-ref': ['--quiet', '-q', '--short'],
+    remote: ['--verbose', '-v', 'get-url', 'show']
+  };
+  
+  // Process arguments based on their type
+  const processedArgs = args.map((arg, index) => {
     validateSafeInput(arg, `git ${subcommand} argument ${index + 1}`);
+    
+    // Don't escape known safe git options
+    const safeOptions = safeGitOptions[subcommand] || [];
+    if (safeOptions.includes(arg)) {
+      return arg;
+    }
+    
+    // Don't escape arguments that look like git refs (refs/heads/, refs/remotes/, etc.)
+    if (arg.startsWith('refs/') || arg.startsWith('origin/')) {
+      return arg;
+    }
+    
+    // Don't escape short flags and known patterns
+    if (arg.startsWith('--') || arg.startsWith('-') || arg.match(/^[a-zA-Z0-9._-]+$/)) {
+      // For paths and complex values, still escape them
+      if (arg.includes('/') && !arg.startsWith('refs/') && !arg.startsWith('origin/')) {
+        return escapeShellArg(arg);
+      }
+      return arg;
+    }
+    
+    // Escape everything else (file paths, user input, etc.)
     return escapeShellArg(arg);
   });
   
   // Construct safe command
-  const command = `git ${subcommand} ${escapedArgs.join(' ')}`;
+  const command = `git ${subcommand} ${processedArgs.join(' ')}`;
   
   try {
     return execSync(command, {

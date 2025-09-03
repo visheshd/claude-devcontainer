@@ -2,11 +2,16 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import {
   isGitRepository,
+  isInMainRepository,
+  getMainRepositoryPath,
   getAllWorktrees,
   getMergedBranches,
   getDockerArtifacts,
   cleanupDockerArtifacts,
   removeWorktree,
+  getGitRepositoryRoot,
+  checkWorktreeStatus,
+  displayWorktreeStatus,
   printStatus,
   printSuccess,
   printWarning,
@@ -24,7 +29,45 @@ export async function handleCleanup(worktreeName, options = {}) {
     throw new Error('Not in a git repository');
   }
   
-  const { list, interactive, merged, all, dryRun, force, verbose } = options;
+  // Critical validation: Ensure we're running from the main repository directory
+  if (!isInMainRepository()) {
+    const currentDir = process.cwd();
+    let mainRepoPath;
+    
+    try {
+      mainRepoPath = getMainRepositoryPath();
+    } catch (error) {
+      printError('Unable to determine main repository location');
+      throw new Error(
+        `Cleanup must be run from the main repository directory, not from a worktree.\n\n` +
+        `Current directory: ${currentDir}\n` +
+        `This appears to be a worktree (.git is a file, not a directory).\n\n` +
+        `Please navigate to your main repository directory and run the cleanup command from there.`
+      );
+    }
+    
+    console.log(chalk.red('❌ Cleanup Safety Check Failed'));
+    console.log(chalk.yellow('\n📍 Current location:'));
+    console.log(`   ${currentDir}`);
+    console.log(chalk.red('   ↳ This is a worktree (git-dir ≠ git-common-dir)'));
+    
+    console.log(chalk.green('\n📍 Main repository location:'));
+    console.log(`   ${mainRepoPath}`);
+    console.log(chalk.green('   ↳ Run cleanup from here (git-dir = git-common-dir)'));
+    
+    console.log(chalk.blue('\n💡 To fix this:'));
+    console.log(`   cd "${mainRepoPath}"`);
+    console.log(`   cdc cleanup ${process.argv.slice(3).join(' ')}`);
+    
+    throw new Error('Cleanup must be run from the main repository directory for safety');
+  }
+  
+  printStatus('✅ Running from main repository - cleanup is safe to proceed');
+  
+  // Get git repository root for worktree operations
+  const gitRoot = getGitRepositoryRoot();
+  
+  const { list, interactive, merged, all, dryRun, force, forceDirty, verbose } = options;
   
   // Enable debug output if verbose mode
   if (verbose) {
@@ -74,8 +117,11 @@ export async function handleCleanup(worktreeName, options = {}) {
         printStatus(`Merged branches: ${mergedBranches.join(', ') || 'none'}`);
       }
       
+      // Only consider additional worktrees with merged branches (never the main repository)
       targetWorktrees = allWorktrees.filter(wt => 
-        wt.branch && mergedBranches.includes(wt.branch)
+        !wt.isMainRepo && // Never process the main repository
+        wt.branch && // Has a branch
+        mergedBranches.includes(wt.branch) // Branch is merged
       );
       
       if (verbose) {
@@ -92,8 +138,8 @@ export async function handleCleanup(worktreeName, options = {}) {
       
       printStatus(`Found ${targetWorktrees.length} worktrees for merged branches`);
     } else if (all) {
-      // Clean all worktrees (excluding main repo)
-      targetWorktrees = allWorktrees.filter(wt => wt.branch); // Exclude bare repo
+      // Clean all additional worktrees (never the main repository)
+      targetWorktrees = allWorktrees.filter(wt => !wt.isMainRepo);
     } else if (interactive) {
       // Interactive mode
       return await interactiveCleanup(allWorktrees, { dryRun, force });
@@ -115,7 +161,7 @@ export async function handleCleanup(worktreeName, options = {}) {
     }
     
     // Process target worktrees
-    await processWorktreeCleanup(targetWorktrees, { dryRun, force });
+    await processWorktreeCleanup(targetWorktrees, { dryRun, force, forceDirty, gitRoot });
     
   } catch (error) {
     throw new Error(`Cleanup failed: ${error.message}`);
@@ -177,7 +223,7 @@ async function listWorktreesAndArtifacts() {
  * Interactive cleanup mode
  */
 async function interactiveCleanup(allWorktrees, options = {}) {
-  const nonMainWorktrees = allWorktrees.filter(wt => wt.branch);
+  const nonMainWorktrees = allWorktrees.filter(wt => !wt.isMainRepo);
   
   if (nonMainWorktrees.length === 0) {
     printStatus('No feature branch worktrees found to clean up');
@@ -219,19 +265,31 @@ async function interactiveCleanup(allWorktrees, options = {}) {
     return;
   }
   
-  await processWorktreeCleanup(answers.selectedWorktrees, options);
+  await processWorktreeCleanup(answers.selectedWorktrees, { ...options, gitRoot: getGitRepositoryRoot() });
 }
 
 /**
  * Process cleanup for selected worktrees
  */
 async function processWorktreeCleanup(targetWorktrees, options = {}) {
-  const { dryRun, force } = options;
+  const { dryRun, force, forceDirty, gitRoot } = options;
+  
+  // Safety validation: Ensure no main repository worktrees are in the target list
+  const mainRepoWorktrees = targetWorktrees.filter(wt => wt.isMainRepo);
+  if (mainRepoWorktrees.length > 0) {
+    throw new Error(`CRITICAL SAFETY ERROR: Main repository worktrees detected in cleanup targets: ${mainRepoWorktrees.map(wt => wt.path).join(', ')}`);
+  }
   
   if (targetWorktrees.length === 0) {
-    printStatus('No worktrees to clean up');
+    printStatus('No additional worktrees to clean up');
     return;
   }
+  
+  // Log what we're targeting for transparency
+  printStatus(`Targeting ${targetWorktrees.length} additional worktree(s) for cleanup:`);
+  targetWorktrees.forEach(wt => {
+    printStatus(`  • ${wt.name} (${wt.path}) - branch: ${wt.branch || 'unknown'}`);
+  });
   
   console.log('\n' + chalk.blue(`🧹 ${dryRun ? 'Preview' : 'Processing'} cleanup for ${targetWorktrees.length} worktree(s):`));
   
@@ -247,6 +305,10 @@ async function processWorktreeCleanup(targetWorktrees, options = {}) {
                 ` (branch: ${worktree.branch})`);
     console.log(`   Path: ${worktree.path}`);
     
+    // Check worktree status
+    const worktreeStatus = checkWorktreeStatus(worktree.path);
+    displayWorktreeStatus(worktreeStatus);
+    
     // Get Docker artifacts
     const artifacts = await getDockerArtifacts(worktree.name);
     
@@ -259,18 +321,38 @@ async function processWorktreeCleanup(targetWorktrees, options = {}) {
     
     // Confirmation (unless force mode or dry run)
     let shouldProceed = force || dryRun;
+    let forceWorktreeRemoval = forceDirty;
     
     if (!shouldProceed) {
       console.log('');
-      const answer = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'proceed',
-          message: `Remove worktree '${worktree.name}' and its Docker artifacts?`,
-          default: false
+      
+      // If worktree has changes and --force-dirty not used, ask specifically about forcing
+      if (!worktreeStatus.isClean && !forceDirty) {
+        const forceAnswer = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'proceed',
+            message: `⚠️  Worktree '${worktree.name}' has uncommitted changes. Remove anyway and lose changes?`,
+            default: false
+          }
+        ]);
+        
+        if (forceAnswer.proceed) {
+          forceWorktreeRemoval = true;
+          shouldProceed = true;
         }
-      ]);
-      shouldProceed = answer.proceed;
+      } else {
+        // Standard confirmation for clean worktrees
+        const answer = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'proceed',
+            message: `Remove worktree '${worktree.name}' and its Docker artifacts?`,
+            default: false
+          }
+        ]);
+        shouldProceed = answer.proceed;
+      }
     }
     
     if (shouldProceed) {
@@ -292,10 +374,12 @@ async function processWorktreeCleanup(targetWorktrees, options = {}) {
         let dockerCleaned = false;
         
         // Remove worktree first
-        const worktreeResult = removeWorktree(worktree.path);
+        const worktreeResult = removeWorktree(worktree.path, false, gitRoot, forceWorktreeRemoval);
         if (worktreeResult.success) {
           printSuccess(`✅ Removed worktree: ${worktree.name}`);
           worktreeRemoved = true;
+        } else if (worktreeResult.requiresForce && !forceWorktreeRemoval) {
+          printError(`Failed to remove worktree: Worktree has uncommitted changes. Use --force-dirty to override.`);
         } else {
           printError(`Failed to remove worktree: ${worktreeResult.error}`);
         }
