@@ -88,26 +88,11 @@ transform_gitdir_path() {
         return 0
     fi
     
-    # Auto-detect devcontainer transformation if no explicit config
+    # If no explicit config but we're in a devcontainer, warn and skip transformation
     if is_devcontainer; then
-        debug_log "Devcontainer detected, attempting auto-transformation"
-        
-        # Try to auto-detect the main repo path transformation
-        # Common patterns: /Users/user/Work/repo -> /main-repo
-        local auto_transformed
-        if echo "$gitdir_line" | grep -q "/Users/"; then
-            # Extract the repo name from the path and assume it's mounted at /main-repo
-            auto_transformed=$(echo "$gitdir_line" | sed 's|gitdir: /Users/[^/]*/Work/[^/]*|gitdir: /main-repo|')
-            debug_log "Auto-transformed (macOS): $auto_transformed"
-            echo "$auto_transformed"
-            return 0
-        elif echo "$gitdir_line" | grep -q "/home/"; then
-            # Linux path pattern
-            auto_transformed=$(echo "$gitdir_line" | sed 's|gitdir: /home/[^/]*/[^/]*|gitdir: /main-repo|')
-            debug_log "Auto-transformed (Linux): $auto_transformed"
-            echo "$auto_transformed"
-            return 0
-        fi
+        debug_log "⚠️ Devcontainer detected but no WORKTREE_HOST_MAIN_REPO set"
+        debug_log "Cannot safely transform paths without environment configuration"
+        debug_log "Using original path - git operations may fail"
     fi
     
     # No transformation applied
@@ -202,10 +187,18 @@ get_original_host_path() {
         
         # If it contains container path, transform back to host path
         if echo "$current_content" | grep -q "/main-repo/"; then
-            local host_path=$(echo "$current_content" | sed "s|/main-repo|${WORKTREE_HOST_MAIN_REPO:-/Users/visheshd/Work/7tea1}|g")
-            debug_log "Computed host path from container path: $host_path"
-            echo "$host_path"
-            return 0
+            # Use environment variable if available
+            if [ -n "$WORKTREE_HOST_MAIN_REPO" ]; then
+                local host_path=$(echo "$current_content" | sed "s|/main-repo|$WORKTREE_HOST_MAIN_REPO|g")
+                debug_log "Computed host path using env var: $host_path"
+                echo "$host_path"
+                return 0
+            else
+                debug_log "⚠️ Container path detected but WORKTREE_HOST_MAIN_REPO not set"
+                debug_log "Cannot restore host path - keeping container path"
+                echo "$current_content"
+                return 0
+            fi
         else
             # Already has host path
             debug_log "Already has host path: $current_content"

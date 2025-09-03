@@ -1,29 +1,28 @@
 {
-  "name": "Claude Worktree Development",
+  "name": "Claude Development",
   "image": "claude-nextjs:latest",
   
   // Initialize command runs on HOST before container starts
-  // This script analyzes the worktree and configures the container mounts automatically
+  // This script detects if we're in a worktree and updates mount paths if needed
   "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
   
   // Post-create command runs inside container after creation
   // This configures the git wrapper environment and validates the setup
   "postCreateCommand": ".devcontainer/configure-git-wrapper.sh",
   
-  // Mount configuration (will be automatically updated by initializeCommand)
-  // The setup script will detect your main repository and add the proper mount
+  // Mount configuration - always include main repo mount
+  // For regular repos: mounts the repo itself at /main-repo (harmless)
+  // For worktrees: setup script will update this to point to actual main repo
   "mounts": [
-    // Main repository mount will be added automatically by setup-worktree-mounts.sh
-    // Example: "source=/Users/user/Work/main-repo,target=/main-repo,type=bind,consistency=cached"
+    "source=${localWorkspaceFolder},target=/main-repo,type=bind,consistency=cached"
   ],
   
-  // Environment variables for git wrapper (will be set automatically)
+  // Environment variables for git wrapper - always set for consistency
   "containerEnv": {
-    // These will be populated by the setup script:
-    // "WORKTREE_DETECTED": "true",
-    // "WORKTREE_HOST_MAIN_REPO": "/Users/user/Work/main-repo", 
-    // "WORKTREE_CONTAINER_MAIN_REPO": "/main-repo",
-    // "WORKTREE_NAME": "worktree-name"
+    "WORKTREE_DETECTED": "auto-detect",
+    "WORKTREE_HOST_MAIN_REPO": "${localWorkspaceFolder}", 
+    "WORKTREE_CONTAINER_MAIN_REPO": "/main-repo",
+    "WORKTREE_NAME": "${localWorkspaceFolderBasename}"
   },
   
   // Container configuration
