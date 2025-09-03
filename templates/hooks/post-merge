@@ -55,10 +55,6 @@ get_merged_branch() {
     # Format: "Merge pull request #123 from user/feature-branch"
     elif [[ $merge_msg =~ Merge\ pull\ request.*from\ [^/]+/(.+) ]]; then
         branch_name="${BASH_REMATCH[1]}"
-    # Format: Custom merge messages that contain branch name
-    elif [[ $merge_msg =~ ([a-zA-Z0-9/_-]+) ]]; then
-        # This is a fallback - might need refinement
-        branch_name="${BASH_REMATCH[1]}"
     fi
     
     echo "$branch_name"

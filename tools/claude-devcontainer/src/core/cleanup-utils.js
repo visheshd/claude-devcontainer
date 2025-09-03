@@ -1,63 +1,44 @@
 import { execSync, spawn } from 'child_process';
 import chalk from 'chalk';
+import { generateDockerArtifactNames, loadWorktreeConfig } from './worktree-config.js';
+import { safeGitExec } from './secure-shell.js';
+import { 
+  safeDockerPs, 
+  safeDockerImages, 
+  safeDockerVolumeList, 
+  safeDockerNetworkList,
+  safeDockerRemove,
+  checkDockerSafely
+} from './docker-safe.js';
+import { cleanupLogger, dockerLogger, gitLogger } from './shared-logging.js';
 
 /**
  * Utility functions for worktree and Docker cleanup
  * Shared between CLI cleanup command and git post-merge hook
  */
 
-// Colors for output
-const colors = {
-  info: chalk.blue,
-  success: chalk.green,
-  warning: chalk.yellow,
-  error: chalk.red,
-  dim: chalk.dim
-};
-
-/**
- * Print status message
- */
+// Re-export logging functions for backward compatibility
 export function printStatus(message) {
-  console.log(colors.info('[CLEANUP]') + ' ' + message);
+  cleanupLogger.info(message);
 }
 
-/**
- * Print success message
- */
 export function printSuccess(message) {
-  console.log(colors.success('[CLEANUP]') + ' ' + message);
+  cleanupLogger.success(message);
 }
 
-/**
- * Print warning message
- */
 export function printWarning(message) {
-  console.log(colors.warning('[CLEANUP]') + ' ' + message);
+  cleanupLogger.warning(message);
 }
 
-/**
- * Print error message
- */
 export function printError(message) {
-  console.log(colors.error('[CLEANUP]') + ' ' + message);
+  cleanupLogger.error(message);
 }
 
 /**
  * Check if Docker is available and accessible
  */
 export async function checkDocker() {
-  try {
-    // Check if docker command exists
-    execSync('command -v docker', { stdio: 'ignore' });
-    
-    // Check if docker daemon is accessible
-    execSync('docker info', { stdio: 'ignore' });
-    
-    return true;
-  } catch (error) {
-    return false;
-  }
+  return checkDockerSafely();
 }
 
 /**
@@ -65,7 +46,7 @@ export async function checkDocker() {
  */
 export function getAllWorktrees() {
   try {
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf8' });
+    const output = safeGitExec('worktree', ['list', '--porcelain'], { encoding: 'utf8' });
     const worktrees = [];
     let currentWorktree = {};
     
@@ -118,13 +99,13 @@ export function getMergedBranches() {
     
     // Strategy 1: Try git symbolic-ref for remote HEAD
     try {
-      defaultBranch = execSync('git symbolic-ref refs/remotes/origin/HEAD', { encoding: 'utf8' })
+      defaultBranch = safeGitExec('symbolic-ref', ['refs/remotes/origin/HEAD'], { encoding: 'utf8' })
         .replace('refs/remotes/origin/', '').trim();
       printStatus(`Found default branch from remote HEAD: ${defaultBranch}`);
     } catch {
       // Strategy 2: Try current branch if we're on main/master
       try {
-        const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+        const currentBranch = safeGitExec('rev-parse', ['--abbrev-ref', 'HEAD'], { encoding: 'utf8' }).trim();
         if (currentBranch === 'main' || currentBranch === 'master') {
           defaultBranch = currentBranch;
           printStatus(`Using current branch as default: ${defaultBranch}`);
@@ -137,19 +118,19 @@ export function getMergedBranches() {
     // Strategy 3: Check for 'main' branch existence
     if (!defaultBranch) {
       try {
-        execSync('git show-ref --verify --quiet refs/heads/main', { stdio: 'ignore' });
+        safeGitExec('show-ref', ['--verify', '--quiet', 'refs/heads/main'], { stdio: 'ignore' });
         defaultBranch = 'main';
         printStatus(`Found 'main' branch, using as default`);
       } catch {
         // Strategy 4: Check for 'master' branch existence  
         try {
-          execSync('git show-ref --verify --quiet refs/heads/master', { stdio: 'ignore' });
+          safeGitExec('show-ref', ['--verify', '--quiet', 'refs/heads/master'], { stdio: 'ignore' });
           defaultBranch = 'master';
           printStatus(`Found 'master' branch, using as default`);
         } catch {
           // Strategy 5: Use the first branch we can find
           try {
-            const branches = execSync('git branch', { encoding: 'utf8' })
+            const branches = safeGitExec('branch', [], { encoding: 'utf8' })
               .split('\n')
               .map(line => line.trim().replace(/^\* /, ''))
               .filter(line => line && line !== '(no branch)');
@@ -171,7 +152,7 @@ export function getMergedBranches() {
     
     // Get merged branches
     try {
-      const output = execSync(`git branch --merged ${defaultBranch}`, { encoding: 'utf8' });
+      const output = safeGitExec('branch', ['--merged', defaultBranch], { encoding: 'utf8' });
       const branches = output
         .split('\n')
         .map(line => line.trim())
@@ -199,6 +180,10 @@ export async function getDockerArtifacts(worktreeName) {
     return { found: false, containers: [], images: [], volumes: [], networks: [] };
   }
   
+  // Load configuration for artifact naming patterns
+  const config = loadWorktreeConfig();
+  const patterns = generateDockerArtifactNames(worktreeName, config);
+  
   const artifacts = {
     found: false,
     containers: [],
@@ -209,9 +194,9 @@ export async function getDockerArtifacts(worktreeName) {
   
   try {
     // Check for containers
-    const containers = execSync(
-      `docker ps -a --filter "name=${worktreeName}_devcontainer" --format "{{.Names}}"`,
-      { encoding: 'utf8' }
+    const containers = safeDockerPs(
+      [{ key: 'name', value: patterns.containerPattern }],
+      '{{.Names}}'
     ).trim();
     if (containers) {
       artifacts.containers = containers.split('\n').filter(Boolean);
@@ -219,9 +204,9 @@ export async function getDockerArtifacts(worktreeName) {
     }
     
     // Check for images
-    const images = execSync(
-      `docker images --filter "reference=vsc-${worktreeName}-*" --format "{{.Repository}}:{{.Tag}}"`,
-      { encoding: 'utf8' }
+    const images = safeDockerImages(
+      [{ key: 'reference', value: patterns.imagePattern }],
+      '{{.Repository}}:{{.Tag}}'
     ).trim();
     if (images) {
       artifacts.images = images.split('\n').filter(Boolean);
@@ -229,9 +214,9 @@ export async function getDockerArtifacts(worktreeName) {
     }
     
     // Check for volumes
-    const volumes = execSync(
-      `docker volume ls --filter "name=vsc-${worktreeName}" --format "{{.Name}}"`,
-      { encoding: 'utf8' }
+    const volumes = safeDockerVolumeList(
+      [{ key: 'name', value: patterns.volumePattern }],
+      '{{.Name}}'
     ).trim();
     if (volumes) {
       artifacts.volumes = volumes.split('\n').filter(Boolean);
@@ -239,9 +224,9 @@ export async function getDockerArtifacts(worktreeName) {
     }
     
     // Check for networks
-    const networks = execSync(
-      `docker network ls --filter "name=${worktreeName}_devcontainer" --format "{{.Name}}"`,
-      { encoding: 'utf8' }
+    const networks = safeDockerNetworkList(
+      [{ key: 'name', value: patterns.networkPattern }],
+      '{{.Name}}'
     ).trim();
     if (networks) {
       artifacts.networks = networks.split('\n').filter(n => 
@@ -263,10 +248,14 @@ export async function getDockerArtifacts(worktreeName) {
  * Clean up Docker artifacts for a specific worktree
  */
 export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
-  if (!await checkDocker()) {
+  if (!await checkDocker(true)) {
     printWarning('Docker not available, skipping Docker cleanup');
     return { success: false, cleaned: 0 };
   }
+  
+  // Load configuration for artifact naming patterns
+  const config = loadWorktreeConfig();
+  const patterns = generateDockerArtifactNames(worktreeName, config);
   
   let totalCleaned = 0;
   const results = {
@@ -278,9 +267,9 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
   
   try {
     // Remove containers
-    const containers = execSync(
-      `docker ps -a --filter "name=${worktreeName}_devcontainer" -q`,
-      { encoding: 'utf8' }
+    const containers = safeDockerPs(
+      [{ key: 'name', value: patterns.containerPattern }],
+      '{{.ID}}'
     ).trim();
     
     if (containers) {
@@ -288,7 +277,7 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
       if (dryRun) {
         printStatus(`Would remove ${containerIds.length} containers`);
       } else {
-        execSync(`echo "${containers}" | xargs docker rm -f`, { stdio: 'ignore' });
+        safeDockerRemove('rm', containerIds, { stdio: 'ignore' });
         results.containers = containerIds.length;
         totalCleaned += containerIds.length;
         printSuccess(`✓ Removed ${containerIds.length} containers`);
@@ -296,9 +285,9 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
     }
     
     // Remove images
-    const images = execSync(
-      `docker images --filter "reference=vsc-${worktreeName}-*" -q`,
-      { encoding: 'utf8' }
+    const images = safeDockerImages(
+      [{ key: 'reference', value: patterns.imagePattern }],
+      '{{.ID}}'
     ).trim();
     
     if (images) {
@@ -306,7 +295,7 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
       if (dryRun) {
         printStatus(`Would remove ${imageIds.length} images`);
       } else {
-        execSync(`echo "${images}" | xargs docker rmi -f`, { stdio: 'ignore' });
+        safeDockerRemove('rmi', imageIds, { stdio: 'ignore' });
         results.images = imageIds.length;
         totalCleaned += imageIds.length;
         printSuccess(`✓ Removed ${imageIds.length} images`);
@@ -314,9 +303,9 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
     }
     
     // Remove volumes
-    const volumes = execSync(
-      `docker volume ls --filter "name=vsc-${worktreeName}" -q`,
-      { encoding: 'utf8' }
+    const volumes = safeDockerVolumeList(
+      [{ key: 'name', value: patterns.volumePattern }],
+      '{{.Name}}'
     ).trim();
     
     if (volumes) {
@@ -324,7 +313,7 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
       if (dryRun) {
         printStatus(`Would remove ${volumeNames.length} volumes`);
       } else {
-        execSync(`echo "${volumes}" | xargs docker volume rm`, { stdio: 'ignore' });
+        safeDockerRemove('volume', volumeNames, { stdio: 'ignore' });
         results.volumes = volumeNames.length;
         totalCleaned += volumeNames.length;
         printSuccess(`✓ Removed ${volumeNames.length} volumes`);
@@ -332,9 +321,9 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
     }
     
     // Remove networks
-    const networks = execSync(
-      `docker network ls --filter "name=${worktreeName}_devcontainer" --format "{{.Name}}"`,
-      { encoding: 'utf8' }
+    const networks = safeDockerNetworkList(
+      [{ key: 'name', value: patterns.networkPattern }],
+      '{{.Name}}'
     ).trim();
     
     if (networks) {
@@ -345,7 +334,7 @@ export async function cleanupDockerArtifacts(worktreeName, dryRun = false) {
         if (dryRun) {
           printStatus(`Would remove ${networkNames.length} networks`);
         } else {
-          execSync(`echo "${networkNames.join('\n')}" | xargs docker network rm`, { stdio: 'ignore' });
+          safeDockerRemove('network', networkNames, { stdio: 'ignore' });
           results.networks = networkNames.length;
           totalCleaned += networkNames.length;
           printSuccess(`✓ Removed ${networkNames.length} networks`);
@@ -377,7 +366,7 @@ export function removeWorktree(worktreePath, dryRun = false) {
       return { success: true };
     }
     
-    execSync(`git worktree remove "${worktreePath}"`, { stdio: 'ignore' });
+    safeGitExec('worktree', ['remove', worktreePath], { stdio: 'ignore' });
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -389,7 +378,7 @@ export function removeWorktree(worktreePath, dryRun = false) {
  */
 export function isGitRepository() {
   try {
-    execSync('git rev-parse --git-dir', { stdio: 'ignore' });
+    safeGitExec('rev-parse', ['--git-dir'], { stdio: 'ignore' });
     return true;
   } catch {
     return false;
