@@ -30,6 +30,9 @@ data/
 # Serena and other tool directories
 .serena/
 
+# Claude Code user configuration (users should have their own via mount)
+.claude/
+
 # Tool build artifacts
 tools/claude-devcontainer/coverage/
 tools/claude-devcontainer/dist/
