@@ -29,6 +29,8 @@ AUTH_STATUS=$?
 
 # Detect and set worktree environment variables
 setup_worktree_env() {
+    echo "🔍 Checking for worktree..."
+    
     if [ -f .git ] && grep -q "gitdir:" .git 2>/dev/null; then
         echo "✓ Worktree detected - setting up environment variables"
         
@@ -38,7 +40,7 @@ setup_worktree_env() {
         local main_repo_path=$(echo "$gitdir_path" | sed 's|/\.git/worktrees/.*|/.git|')
         main_repo_path=$(dirname "$main_repo_path")
         
-        # Set worktree environment variables
+        # Set worktree environment variables for current session
         export WORKTREE_DETECTED="true"
         export WORKTREE_HOST_MAIN_REPO="$main_repo_path"
         export WORKTREE_CONTAINER_MAIN_REPO="/main-repo"
@@ -56,6 +58,8 @@ EOF
         echo "  • Main repository: $WORKTREE_HOST_MAIN_REPO"
         echo "  • Worktree name: $WORKTREE_NAME"
         echo "  • Environment variables persisted for new terminals"
+    else
+        echo "🔍 Not in a worktree - skipping worktree setup"
     fi
 }
 
