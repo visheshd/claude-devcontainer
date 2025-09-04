@@ -363,7 +363,7 @@ The mount is automatically configured as:
 
 The CLI automatically detects existing claude-docker setups and helps migrate:
 
-1. **Detection**: Scans for `claude-docker.sh` and related files
+1. **Detection**: Scans for existing Docker configurations and project structure
 2. **Configuration**: Preserves MCP server configurations
 3. **Environment**: Migrates `.env` settings
 4. **Features**: Maps existing functionality to DevContainer features

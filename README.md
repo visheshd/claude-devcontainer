@@ -425,15 +425,13 @@ claude-devcontainer init -s custom
 
 > ⚠️ **Security Note**: Authentication is handled via runtime volume mounts ONLY. Authentication files are never baked into Docker images, preventing credential leaks if images are accidentally published.
 
-### Quick Setup for Persistent Authentication
+### Quick Setup with DevContainers
 ```bash
-# One-time setup: migrate your existing authentication
-./scripts/setup-persistent-auth.sh
+# Initialize devcontainer configuration
+cdc init
 
-# Use the persistent auth wrapper (recommended)
-./scripts/claude-docker.sh
-
-# Your authentication persists across container restarts!
+# Open in VS Code and reopen in container
+# Your existing ~/.claude authentication works immediately!
 ```
 
 ### How It Works
@@ -444,21 +442,25 @@ claude-devcontainer init -s custom
 - **SSH Integration**: Git operations work seamlessly with persistent SSH keys
 - **Security First**: `.dockerignore` prevents auth files from entering build context
 
-### Docker Compose with Persistent Auth
-```bash
-# Use the persistent auth docker-compose configuration
-docker-compose -f docker-compose.persistent-auth.yml up
-
-# Or use the wrapper script (recommended)
-./scripts/claude-docker.sh --memory 16g --gpus all
+### DevContainer Configuration
+```json
+{
+  "hostRequirements": {
+    "memory": "16gb",
+    "cpus": 6
+  },
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+  ]
+}
 ```
 
 ### Manual Setup (Advanced)
-If you prefer manual configuration, see the authentication mounting strategy:
+For custom Docker configurations, use the standard mount:
 ```yaml
 volumes:
   - ~/.claude:/home/claude-user/.claude:rw
-  - ~/.claude-docker/ssh:/home/claude-user/.ssh:rw
+  - ~/.ssh:/home/claude-user/.ssh:ro
 ```
 
 ### Benefits
