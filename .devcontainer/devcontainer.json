@@ -1,7 +1,7 @@
 {
   "name": "Custom Development Environment",
   "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
-  "postCreateCommand": "echo '🔧 Custom environment ready!' && .devcontainer/configure-git-wrapper.sh",
+  "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
     "source=${localWorkspaceFolder},target=/main-repo,type=bind,consistency=cached"
