@@ -1,0 +1,49 @@
+{
+  "name": "Custom Development Environment",
+  "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
+  "postCreateCommand": "echo '🔧 Custom environment ready!' && .devcontainer/configure-git-wrapper.sh",
+  "mounts": [
+    "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind"
+  ],
+  "containerEnv": {},
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "claude-user",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vsliveshare.vsliveshare"
+      ],
+      "settings": {
+        "git.enableSmartCommit": true,
+        "git.confirmSync": false,
+        "git.autofetch": true,
+        "editor.formatOnSave": true,
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "files.associations": {
+          "*.env.*": "properties"
+        }
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
+      "servers": "serena,context7"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+  "onCreateCommand": {
+    "install-deps": "echo 'Base container ready - stack-specific setup will run next'"
+  },
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "4gb"
+  },
+  "image": "claude-base:latest"
+}
