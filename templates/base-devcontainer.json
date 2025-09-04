@@ -1,21 +1,14 @@
 {
   "name": "Claude Development Container",
   
-  // Initialize command creates worktree.env file for Docker --env-file
-  "initializeCommand": "chmod +x .devcontainer/get-main-repo-path.sh && .devcontainer/get-main-repo-path.sh ${localWorkspaceFolder} > .devcontainer/worktree.env",
-  
   // Post-create command runs inside container after creation
-  // This sets up worktree environment variables and configures the git wrapper
   "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
   
-  // Mount configuration using host environment variable
+  // Mount configuration - MAIN_REPO_PATH will be set by wt command via containerEnv
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
-    "source=${localEnv:MAIN_REPO_PATH},target=/main-repo,type=bind,consistency=cached"
+    "source=${MAIN_REPO_PATH:-${localWorkspaceFolder}},target=/main-repo,type=bind,consistency=cached"
   ],
-  
-  // Docker run arguments to load environment variables from file
-  "runArgs": ["--env-file", ".devcontainer/worktree.env"],
   
   // Container configuration
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",

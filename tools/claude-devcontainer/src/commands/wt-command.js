@@ -100,6 +100,43 @@ export async function handleWt(featureName, branchRef = null) {
       }
     }
 
+    // Update devcontainer.json with containerEnv for worktree
+    const devcontainerPath = path.join(worktreePath, '.devcontainer/devcontainer.json');
+    if (fs.existsSync(devcontainerPath)) {
+      try {
+        console.log(chalk.blue('🔧 Configuring devcontainer for worktree...'));
+        
+        // Read existing devcontainer.json
+        const devcontainerConfig = JSON.parse(fs.readFileSync(devcontainerPath, 'utf8'));
+        
+        // Add/update containerEnv with main repo path
+        if (!devcontainerConfig.containerEnv) {
+          devcontainerConfig.containerEnv = {};
+        }
+        devcontainerConfig.containerEnv.MAIN_REPO_PATH = mainWorktree;
+        
+        // Write back the updated configuration
+        fs.writeFileSync(devcontainerPath, JSON.stringify(devcontainerConfig, null, 2));
+        
+        // Mark devcontainer.json as assumed unchanged to prevent dirty worktree
+        try {
+          safeGitExec('update-index', ['--assume-unchanged', '.devcontainer/devcontainer.json'], { 
+            stdio: 'pipe',
+            cwd: worktreePath 
+          });
+          console.log(chalk.green('✅ DevContainer configured with main repo path'));
+          console.log(chalk.gray(`  • MAIN_REPO_PATH=${mainWorktree}`));
+        } catch (gitError) {
+          console.log(chalk.yellow('⚠️  DevContainer configured but could not mark as unchanged'));
+          console.log(chalk.gray(`  • ${gitError.message}`));
+        }
+        
+      } catch (error) {
+        console.log(chalk.yellow('⚠️  Failed to configure devcontainer'));
+        console.log(chalk.gray(error.message));
+      }
+    }
+
     console.log(chalk.blue(`📁 Switching to worktree: ${worktreePath}`));
 
     // Output the cd command for shell integration (like original script)
