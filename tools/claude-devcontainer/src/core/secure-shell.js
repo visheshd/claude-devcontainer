@@ -67,7 +67,7 @@ export function safeGitExec(subcommand, args = [], options = {}) {
   // Validate subcommand
   const allowedSubcommands = [
     'worktree', 'branch', 'rev-parse', 'show-ref', 'fetch', 'status', 
-    'log', 'symbolic-ref', 'remote'
+    'log', 'symbolic-ref', 'remote', 'update-index'
   ];
   
   if (!allowedSubcommands.includes(subcommand)) {
@@ -84,7 +84,8 @@ export function safeGitExec(subcommand, args = [], options = {}) {
     status: ['--porcelain', '--short', '-s', '--branch', '-b'],
     log: ['--oneline', '--graph', '--decorate', '--all', '--format', '--pretty'],
     'symbolic-ref': ['--quiet', '-q', '--short'],
-    remote: ['--verbose', '-v', 'get-url', 'show']
+    remote: ['--verbose', '-v', 'get-url', 'show'],
+    'update-index': ['--assume-unchanged', '--no-assume-unchanged', '--skip-worktree', '--no-skip-worktree', '--refresh', '--ignore-missing']
   };
   
   // Process arguments based on their type
