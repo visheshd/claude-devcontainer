@@ -1,12 +1,15 @@
 {
   "name": "Custom Development Environment",
-  "initializeCommand": ".devcontainer/../scripts/get-main-repo-path.sh ${localWorkspaceFolder}",
+  "initializeCommand": "chmod +x .devcontainer/get-main-repo-path.sh && .devcontainer/get-main-repo-path.sh ${localWorkspaceFolder} > .devcontainer/worktree.env",
   "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
-    "source=$(cat ${localWorkspaceFolder}/.devcontainer/worktree.env 2>/dev/null || echo ${localWorkspaceFolder}),target=/main-repo,type=bind,consistency=cached"
+    "source=${localEnv:MAIN_REPO_PATH},target=/main-repo,type=bind,consistency=cached"
   ],
-  "containerEnv": {},
+  "runArgs": [
+    "--env-file",
+    ".devcontainer/worktree.env"
+  ],
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "remoteUser": "claude-user",
   "customizations": {
