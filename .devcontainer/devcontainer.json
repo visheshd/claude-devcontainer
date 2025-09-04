@@ -3,7 +3,7 @@
   "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
   "postCreateCommand": "echo '🔧 Custom environment ready!' && .devcontainer/configure-git-wrapper.sh",
   "mounts": [
-    "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind"
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
   ],
   "containerEnv": {},
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
