@@ -2,6 +2,7 @@ import { BaseChangeSet } from '../BaseChangeSet.js';
 
 /**
  * Change set that adds the .claude directory mount for user customizations
+ * Uses persistent auth directory for better authentication persistence across container restarts
  */
 export class AddClaudeMountChangeSet extends BaseChangeSet {
   get id() {
@@ -13,11 +14,11 @@ export class AddClaudeMountChangeSet extends BaseChangeSet {
   }
 
   get description() {
-    return 'Adds mount for user\'s .claude directory to enable full Claude Code functionality';
+    return 'Adds mount for persistent Claude authentication and customizations';
   }
 
   get version() {
-    return '1.0.0';
+    return '1.1.0';
   }
 
   canApply(config) {
@@ -46,16 +47,16 @@ export class AddClaudeMountChangeSet extends BaseChangeSet {
       };
     }
 
-    const claudeMount = "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind";
+    const claudeMount = "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind";
     
     return {
-      summary: 'Will add .claude directory mount for user customizations',
+      summary: 'Will add persistent Claude authentication mount',
       changes: [
         {
           type: 'add',
           path: 'mounts',
           value: claudeMount,
-          description: 'Add mount for user\'s .claude directory'
+          description: 'Add mount for persistent Claude authentication and customizations'
         }
       ]
     };
@@ -69,7 +70,7 @@ export class AddClaudeMountChangeSet extends BaseChangeSet {
     // Create a deep copy of the config
     const updatedConfig = JSON.parse(JSON.stringify(config));
 
-    const claudeMount = "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind";
+    const claudeMount = "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind";
 
     if (!updatedConfig.mounts) {
       updatedConfig.mounts = [];

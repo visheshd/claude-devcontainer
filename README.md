@@ -423,6 +423,8 @@ claude-devcontainer init -s custom
 
 **NEW**: Claude Docker now supports persistent authentication like conductor.build - no more re-logging into Claude Code every time you restart containers!
 
+> ⚠️ **Security Note**: Authentication is handled via runtime volume mounts ONLY. Authentication files are never baked into Docker images, preventing credential leaks if images are accidentally published.
+
 ### Quick Setup for Persistent Authentication
 ```bash
 # One-time setup: migrate your existing authentication
@@ -436,10 +438,11 @@ claude-devcontainer init -s custom
 
 ### How It Works
 - **Persistent Storage**: Authentication files stored in `~/.claude-docker/auth/`
+- **Runtime Volume Mounts**: Auth files mounted at container startup - NEVER baked into images
 - **Automatic Detection**: Container startup checks for existing credentials
 - **Legacy Support**: Works with both `.credentials.json` (OAuth/API) and `.claude.json` formats  
 - **SSH Integration**: Git operations work seamlessly with persistent SSH keys
-- **Volume Mounting**: Dedicated authentication volumes prevent data loss
+- **Security First**: `.dockerignore` prevents auth files from entering build context
 
 ### Docker Compose with Persistent Auth
 ```bash
@@ -464,6 +467,20 @@ volumes:
 ✅ **Automatic Migration**: Seamlessly migrates existing authentication  
 ✅ **Multiple Formats**: Supports OAuth, API keys, and legacy authentication  
 ✅ **Git Integration**: Persistent SSH keys for seamless git operations  
+✅ **Security First**: Authentication never stored in Docker images
+
+### 🔒 Security Implementation
+**Image Security**: All authentication is handled via runtime volume mounts only:
+- ✅ **Docker images contain NO authentication data**
+- ✅ **`.dockerignore` prevents auth files from build context**
+- ✅ **Safe to publish images** - no credential leaks possible
+- ✅ **Runtime-only mounting** from `~/.claude-docker/auth/`
+
+```yaml
+# Safe volume mounting - never in image layers
+volumes:
+  - ~/.claude-docker/auth:/home/claude-user/.claude:rw  # Runtime only!
+```
 
 ## 🔒 Security & Privacy Notice
 

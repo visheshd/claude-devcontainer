@@ -348,7 +348,7 @@ The mount is automatically configured as:
 ```json
 {
   "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+    "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind"
   ]
 }
 ```
@@ -501,7 +501,7 @@ Create `.devcontainer/devcontainer.json` directly:
   "name": "Database Development Environment",
   "image": "my-db-claude:latest",
   "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
+    "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind"
   ],
   "features": {
     "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {

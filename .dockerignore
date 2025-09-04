@@ -1,0 +1,102 @@
+# Claude Docker Build Context Ignore
+# Prevents sensitive files from being included in Docker image layers
+
+# Authentication files - CRITICAL SECURITY
+.claude.json
+.credentials.json
+.claude/.credentials.json
+.claude/auth/
+.claude-docker/
+
+# SSH keys and certificates
+.ssh/
+*.pem
+*.key
+*.crt
+id_rsa*
+id_ed25519*
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# Git and version control (already handled by .gitignore but adding for safety)
+.git/
+.gitignore
+
+# Node.js
+node_modules/
+npm-debug.log*
+.npm
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Build artifacts that might contain sensitive info
+dist/
+build/
+target/
+.next/
+
+# Log files that might contain sensitive data
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration files that might contain secrets
+config.json
+secrets.yaml
+secrets.yml
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE specific
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Any files ending with secret, key, token, password
+*secret*
+*token*
+*password*
+*credential*
+
+# Docker specific
+.dockerignore
+docker-compose.override.yml

@@ -75,26 +75,14 @@ COPY .env* /app/
 # Copy CLAUDE.md template directly to final location
 COPY .claude/CLAUDE.md /home/claude-user/.claude/CLAUDE.md
 
-# Copy Claude authentication files from host if they exist
-# Note: These enable persistent authentication but are optional
-COPY .claude.jso[n] /tmp/ || echo "No .claude.json found - will need to authenticate"
-
-# Create authentication directories with proper permissions
+# Create authentication directories (will be populated via volume mounts at runtime)
+# SECURITY: Authentication files are NEVER copied into the image - only via runtime volumes
 RUN mkdir -p /home/claude-user/.claude /home/claude-user/.claude/auth
 
 # Copy MCP server configuration files (as root)
 COPY mcp-servers.txt /app/
 COPY install-mcp-servers.sh /app/
 RUN chmod +x /app/install-mcp-servers.sh
-
-# Move auth files to proper location before switching user (if they exist)
-RUN if [ -f /tmp/.claude.json ]; then \
-        cp /tmp/.claude.json /home/claude-user/.claude.json && \
-        rm -f /tmp/.claude.json && \
-        echo "Authentication files copied"; \
-    else \
-        echo "No authentication files found - will authenticate at runtime"; \
-    fi
 
 # Set proper ownership for everything
 RUN chown -R claude-user /app /home/claude-user
