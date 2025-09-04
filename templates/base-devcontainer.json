@@ -4,10 +4,10 @@
   // Post-create command runs inside container after creation
   "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
   
-  // Mount configuration - MAIN_REPO_PATH will be set by wt command via containerEnv
+  // Mount configuration - WORKTREE_HOST_MAIN_REPO will be set by wt command via containerEnv
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
-    "source=${MAIN_REPO_PATH:-${localWorkspaceFolder}},target=/main-repo,type=bind,consistency=cached"
+    "source=${containerEnv:WORKTREE_HOST_MAIN_REPO:-${localWorkspaceFolder}},target=/main-repo,type=bind,consistency=cached"
   ],
   
   // Container configuration

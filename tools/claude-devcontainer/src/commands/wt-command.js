@@ -109,11 +109,16 @@ export async function handleWt(featureName, branchRef = null) {
         // Read existing devcontainer.json
         const devcontainerConfig = JSON.parse(fs.readFileSync(devcontainerPath, 'utf8'));
         
-        // Add/update containerEnv with main repo path
+        // Add/update containerEnv with all required worktree environment variables
         if (!devcontainerConfig.containerEnv) {
           devcontainerConfig.containerEnv = {};
         }
-        devcontainerConfig.containerEnv.MAIN_REPO_PATH = mainWorktree;
+        
+        // Set all worktree environment variables needed by git-wrapper.sh
+        devcontainerConfig.containerEnv.WORKTREE_DETECTED = "true";
+        devcontainerConfig.containerEnv.WORKTREE_HOST_MAIN_REPO = mainWorktree;
+        devcontainerConfig.containerEnv.WORKTREE_MOUNT_PATH = "/main-repo";
+        devcontainerConfig.containerEnv.WORKTREE_NAME = path.basename(worktreePath);
         
         // Write back the updated configuration
         fs.writeFileSync(devcontainerPath, JSON.stringify(devcontainerConfig, null, 2));
@@ -124,8 +129,11 @@ export async function handleWt(featureName, branchRef = null) {
             stdio: 'pipe',
             cwd: worktreePath 
           });
-          console.log(chalk.green('✅ DevContainer configured with main repo path'));
-          console.log(chalk.gray(`  • MAIN_REPO_PATH=${mainWorktree}`));
+          console.log(chalk.green('✅ DevContainer configured with worktree environment'));
+          console.log(chalk.gray(`  • WORKTREE_HOST_MAIN_REPO=${mainWorktree}`));
+          console.log(chalk.gray(`  • WORKTREE_MOUNT_PATH=/main-repo`));
+          console.log(chalk.gray(`  • WORKTREE_NAME=${path.basename(worktreePath)}`));
+          console.log(chalk.gray(`  • WORKTREE_DETECTED=true`));
         } catch (gitError) {
           console.log(chalk.yellow('⚠️  DevContainer configured but could not mark as unchanged'));
           console.log(chalk.gray(`  • ${gitError.message}`));

@@ -53,7 +53,7 @@ is_worktree() {
 transform_gitdir_path() {
     local gitdir_line="$1"
     local host_main_repo="$WORKTREE_HOST_MAIN_REPO"
-    local container_main_repo="${WORKTREE_CONTAINER_MAIN_REPO:-/main-repo}"
+    local container_main_repo="${WORKTREE_MOUNT_PATH:-/main-repo}"
     
     debug_log "Transforming gitdir path: $gitdir_line"
     debug_log "Host main repo: $host_main_repo"
