@@ -3,8 +3,11 @@
   "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
-    "source=${MAIN_REPO_PATH:-${localWorkspaceFolder}},target=/main-repo,type=bind,consistency=cached"
+    "source=${containerEnv:WORKTREE_HOST_MAIN_REPO},target=/main-repo,type=bind,consistency=cached"
   ],
+  "containerEnv": {
+    "WORKTREE_HOST_MAIN_REPO": "${localWorkspaceFolder}"
+  },
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "remoteUser": "claude-user",
   "customizations": {
