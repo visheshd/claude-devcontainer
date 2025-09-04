@@ -120,6 +120,18 @@ export async function handleWt(featureName, branchRef = null) {
         devcontainerConfig.containerEnv.WORKTREE_MOUNT_PATH = "/main-repo";
         devcontainerConfig.containerEnv.WORKTREE_NAME = path.basename(worktreePath);
         
+        // Update mount configuration to use actual main repo path
+        if (devcontainerConfig.mounts && Array.isArray(devcontainerConfig.mounts)) {
+          for (let i = 0; i < devcontainerConfig.mounts.length; i++) {
+            const mount = devcontainerConfig.mounts[i];
+            if (typeof mount === 'string' && mount.includes('target=/main-repo')) {
+              // Replace the source with actual main repo path
+              devcontainerConfig.mounts[i] = `source=${mainWorktree},target=/main-repo,type=bind,consistency=cached`;
+              break;
+            }
+          }
+        }
+        
         // Write back the updated configuration
         fs.writeFileSync(devcontainerPath, JSON.stringify(devcontainerConfig, null, 2));
         
@@ -134,6 +146,7 @@ export async function handleWt(featureName, branchRef = null) {
           console.log(chalk.gray(`  • WORKTREE_MOUNT_PATH=/main-repo`));
           console.log(chalk.gray(`  • WORKTREE_NAME=${path.basename(worktreePath)}`));
           console.log(chalk.gray(`  • WORKTREE_DETECTED=true`));
+          console.log(chalk.gray(`  • Mount updated: ${mainWorktree} → /main-repo`));
         } catch (gitError) {
           console.log(chalk.yellow('⚠️  DevContainer configured but could not mark as unchanged'));
           console.log(chalk.gray(`  • ${gitError.message}`));
