@@ -284,7 +284,7 @@ export async function handleChangeSets() {
   });
   
   console.log(chalk.yellow('💡 Usage examples:'));
-  console.log(chalk.gray('   claude-devcontainer migrate-specific add-claude-mount'));
+  console.log(chalk.gray('   claude-devcontainer migrate-specific update-image'));
   console.log(chalk.gray('   claude-devcontainer migrate-specific update-image add-mcp-servers'));
   console.log(chalk.gray('   claude-devcontainer migrate --dry-run'));
 }

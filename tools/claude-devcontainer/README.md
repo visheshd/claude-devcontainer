@@ -182,7 +182,7 @@ Options:
 **Examples:**
 ```bash
 # Apply specific change sets
-claude-devcontainer migrate-specific add-claude-mount update-image
+claude-devcontainer migrate-specific update-image add-mcp-servers
 
 # Preview changes
 claude-devcontainer migrate-specific add-mcp-feature --dry-run
@@ -723,7 +723,7 @@ claude-devcontainer check
 claude-devcontainer change-sets
 
 # Apply specific improvements
-claude-devcontainer migrate-specific add-claude-mount update-image
+claude-devcontainer migrate-specific update-image add-mcp-servers
 
 # Or migrate everything
 claude-devcontainer migrate --dry-run  # Preview changes

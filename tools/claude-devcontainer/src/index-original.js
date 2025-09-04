@@ -1104,7 +1104,7 @@ export function setupCLI() {
 
   program
     .command('migrate-specific <changesets...>')
-    .description('Apply specific change sets (e.g., add-claude-mount update-image)')
+    .description('Apply specific change sets (e.g., update-image add-mcp-servers)')
     .option('--dry-run', 'Show proposed changes without applying them')
     .option('--auto', 'Apply changes automatically without prompting')
     .action((changesets, options) => handleMigrateSpecific(changesets, options));
