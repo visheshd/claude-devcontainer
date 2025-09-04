@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     gnupg \
     lsb-release \
+    jq \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 

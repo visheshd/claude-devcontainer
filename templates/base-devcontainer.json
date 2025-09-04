@@ -2,7 +2,7 @@
   "name": "Claude Development Container",
   
   // Post-create command runs inside container after creation
-  "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
+  "postCreateCommand": "startup.sh",
   
   // Mount configuration - wt command will write actual path for worktrees
   "mounts": [
@@ -72,5 +72,10 @@
   "hostRequirements": {
     "cpus": 2,
     "memory": "4gb"
+  },
+  
+  // Container environment variables
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/claude-user/.claude"
   }
 }

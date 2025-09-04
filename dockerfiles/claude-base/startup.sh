@@ -45,13 +45,20 @@ fi
 
 echo "Starting Claude Code..."
 
-# Use appropriate authentication flags based on what we found
+# Show Claude Code startup instructions
 if [ $AUTH_STATUS -eq 0 ]; then
-    # Authentication found - start with persistent auth support
-    echo "  Using persistent authentication"
-    exec claude --dangerously-skip-permissions --no-auth-prompt "$@"
+    # Authentication found - ready to use
+    echo "  ✅ Ready! Your authentication is configured."
+    echo ""
+    echo "🚀 To start Claude Code, run:"
+    echo "   claude"
 else
     # No auth found - will need to authenticate interactively
-    echo "  Will prompt for authentication on first use"
-    exec claude --dangerously-skip-permissions "$@"
+    echo "  ⚠️  Authentication required on first use"
+    echo ""
+    echo "🚀 To start Claude Code and authenticate, run:"
+    echo "   claude"
 fi
+
+echo ""
+echo "💡 Your authentication and settings will persist across container restarts."
