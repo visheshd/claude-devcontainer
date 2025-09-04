@@ -56,6 +56,12 @@ export WORKTREE_CONTAINER_MAIN_REPO="/main-repo"
 export WORKTREE_NAME="$(basename $(pwd))"
 EOF
         
+        # Make the environment file executable so it gets sourced by new shells
+        chmod +x /etc/profile.d/worktree-env.sh
+        
+        # Add bashrc sourcing for interactive shells (VS Code terminals)
+        echo 'source /etc/profile.d/worktree-env.sh 2>/dev/null || true' >> /home/claude-user/.bashrc
+        
         echo "  • Main repository: $WORKTREE_HOST_MAIN_REPO"
         echo "  • Worktree name: $WORKTREE_NAME"
         echo "  • Environment variables persisted for new terminals"

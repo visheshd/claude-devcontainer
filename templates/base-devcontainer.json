@@ -1,18 +1,17 @@
 {
   "name": "Claude Development Container",
   
-  // Initialize command runs on HOST before container starts
-  // This script analyzes the worktree and configures the container mounts automatically
-  "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
+  // Initialize command sets MAIN_REPO_PATH environment variable for mount configuration
+  "initializeCommand": "eval $(.devcontainer/../scripts/get-main-repo-path.sh ${localWorkspaceFolder})",
   
   // Post-create command runs inside container after creation
   // This sets up worktree environment variables and configures the git wrapper
   "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
   
-  // Mount configuration (main repo mount will be updated by initializeCommand for worktrees)
+  // Mount configuration using dynamically resolved main repo path
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
-    "source=${localWorkspaceFolder},target=/main-repo,type=bind,consistency=cached"
+    "source=${localEnv:MAIN_REPO_PATH:-${localWorkspaceFolder}},target=/main-repo,type=bind,consistency=cached"
   ],
   
   // Environment variables for git wrapper (set automatically by startup script in worktrees)

@@ -30,8 +30,7 @@
     }
   },
   
-  // Rust/Tauri specific post-create command
-  "postCreateCommand": "cargo --version && echo '🦀 Rust Tauri environment ready!' && .devcontainer/configure-git-wrapper.sh",
+  // Rust/Tauri specific post-create command - inherited from base template
   
   // Higher resource requirements for Rust compilation
   "hostRequirements": {

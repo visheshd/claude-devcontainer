@@ -50,6 +50,6 @@
   // Next.js specific lifecycle hooks
   "onCreateCommand": {
     "install-deps": "npm install || pnpm install || yarn install || echo 'No package.json found'"
-  },
-  "postCreateCommand": "echo '⚡ Next.js environment ready!' && .devcontainer/configure-git-wrapper.sh"
+  }
+  // postCreateCommand is inherited from base template for single source of truth
 }

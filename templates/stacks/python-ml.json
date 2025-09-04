@@ -42,8 +42,7 @@
     }
   },
   
-  // Python ML specific post-create command
-  "postCreateCommand": "uv sync && echo '🐍 Python ML environment ready!' && .devcontainer/configure-git-wrapper.sh",
+  // Python ML specific post-create command - inherited from base template
   
   // Environment variables specific to Python ML
   "containerEnv": {
