@@ -204,16 +204,34 @@ def get_worktree_info(path=None):
     worktree_info["all_worktrees"] = worktrees
     
     # Find main worktree and current worktree
+    main_worktree_found = False
+    
     for wt in worktrees:
         wt_path = Path(wt["path"]).resolve()
-        
-        # Main worktree is typically the first one or the one without a separate .git file
-        if worktree_info["main_worktree"] is None:
-            worktree_info["main_worktree"] = wt["path"]
         
         # Check if this is the current worktree
         if wt_path == current_path:
             worktree_info["current_worktree"] = wt
+        
+        # Find the main worktree - it should have .git as a directory, not a file
+        if not main_worktree_found:
+            git_dir = wt_path / ".git"
+            if git_dir.exists() and git_dir.is_dir():
+                worktree_info["main_worktree"] = wt["path"]
+                main_worktree_found = True
+    
+    # Fallback: if no directory-based .git found, use the first bare worktree or first entry
+    if not main_worktree_found and worktrees:
+        # Look for bare repository first
+        for wt in worktrees:
+            if wt.get("bare", False):
+                worktree_info["main_worktree"] = wt["path"]
+                main_worktree_found = True
+                break
+        
+        # Final fallback: use first worktree
+        if not main_worktree_found:
+            worktree_info["main_worktree"] = worktrees[0]["path"]
     
     return worktree_info
 

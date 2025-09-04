@@ -12,16 +12,6 @@ check_auth() {
         auth_found=true
     fi
     
-    # Check for .claude.json (legacy auth format)
-    if [ -f "$HOME/.claude.json" ]; then
-        echo "✓ Found legacy auth at ~/.claude.json"
-        # Copy to modern location if not already there
-        if [ ! -f "$HOME/.claude/.credentials.json" ] && [ -s "$HOME/.claude.json" ]; then
-            cp "$HOME/.claude.json" "$HOME/.claude/.credentials.json"
-            echo "  Migrated auth to ~/.claude/.credentials.json"
-        fi
-        auth_found=true
-    fi
     
     if [ "$auth_found" = true ]; then
         echo "✓ Authentication available - no login required"

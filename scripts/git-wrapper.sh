@@ -6,8 +6,6 @@
 # Path to the real git binary
 REAL_GIT="/usr/bin/git"
 
-# Path to git utilities script
-GIT_UTILS_SCRIPT="/home/claude-user/scripts/git_utils.py"
 
 # Debug mode (set to true for verbose output)
 DEBUG_MODE="${GIT_WRAPPER_DEBUG:-false}"
@@ -45,59 +43,27 @@ log_call_stack() {
     persistent_log "=== END CALL STACK ==="
 }
 
-# Function to check if we're in a worktree using git_utils.py
+# Simple worktree detection - just check if .git is a file
 is_worktree() {
-    if [ -f "$GIT_UTILS_SCRIPT" ] && command -v python3 >/dev/null 2>&1; then
-        python3 "$GIT_UTILS_SCRIPT" is-worktree 2>/dev/null | grep -q "true"
-        return $?
-    else
-        # Fallback: check if .git is a file (basic worktree detection)
-        [ -f .git ] && grep -q "gitdir:" .git 2>/dev/null
-        return $?
-    fi
+    [ -f .git ]
 }
 
-# Function to get worktree info using git_utils.py
-get_worktree_info() {
-    if [ -f "$GIT_UTILS_SCRIPT" ] && command -v python3 >/dev/null 2>&1; then
-        python3 "$GIT_UTILS_SCRIPT" json 2>/dev/null
-    fi
-}
-
-# Function to detect if we're in a devcontainer
-is_devcontainer() {
-    [ -d "/workspaces" ] || [ -n "$CODESPACES" ] || [ -n "$DEVCONTAINER" ]
-}
 
 # Function to transform paths from host to container
 transform_gitdir_path() {
     local gitdir_line="$1"
-    local host_main_repo="${WORKTREE_HOST_MAIN_REPO:-}"
+    local host_main_repo="$WORKTREE_HOST_MAIN_REPO"
     local container_main_repo="${WORKTREE_CONTAINER_MAIN_REPO:-/main-repo}"
     
     debug_log "Transforming gitdir path: $gitdir_line"
     debug_log "Host main repo: $host_main_repo"
     debug_log "Container main repo: $container_main_repo"
     
-    # If environment variables are set, use them for transformation
-    if [ -n "$host_main_repo" ] && [ -n "$container_main_repo" ]; then
-        local transformed
-        transformed=$(echo "$gitdir_line" | sed "s|$host_main_repo|$container_main_repo|g")
-        debug_log "Path transformed to: $transformed"
-        echo "$transformed"
-        return 0
-    fi
-    
-    # If no explicit config but we're in a devcontainer, warn and skip transformation
-    if is_devcontainer; then
-        debug_log "⚠️ Devcontainer detected but no WORKTREE_HOST_MAIN_REPO set"
-        debug_log "Cannot safely transform paths without environment configuration"
-        debug_log "Using original path - git operations may fail"
-    fi
-    
-    # No transformation applied
-    debug_log "No path transformation applied"
-    echo "$gitdir_line"
+    # Transform host path to container path
+    local transformed
+    transformed=$(echo "$gitdir_line" | sed "s|$host_main_repo|$container_main_repo|g")
+    debug_log "Path transformed to: $transformed"
+    echo "$transformed"
 }
 
 # Simplified worktree git handler - no backup files needed
@@ -242,22 +208,15 @@ main() {
         debug_log "No .git file found initially"
     fi
     
-    # Check if worktree environment variables are set
-    if [ "${WORKTREE_DETECTED:-false}" = "true" ]; then
-        debug_log "Worktree detected via environment variable"
+    # Simple check: environment variable set AND we're in a worktree
+    if [ -n "$WORKTREE_HOST_MAIN_REPO" ] && [ -f .git ]; then
+        debug_log "Worktree detected: WORKTREE_HOST_MAIN_REPO=$WORKTREE_HOST_MAIN_REPO"
         handle_worktree_git "$@"
         return $?
     fi
     
-    # Check if we're in a worktree directory
-    if is_worktree; then
-        debug_log "Worktree detected in current directory"
-        handle_worktree_git "$@"
-        return $?
-    fi
-    
-    # Not in a worktree, run git normally
-    debug_log "Not in worktree, running git normally"
+    # Not in a worktree or no environment variable, run git normally
+    debug_log "Not in worktree or no environment variable, running git normally"
     debug_log "🏁 === GIT WRAPPER EXECUTION END (NORMAL) ==="
     "$REAL_GIT" "$@"
     return $?
