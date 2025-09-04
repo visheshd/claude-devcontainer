@@ -6,6 +6,13 @@ A comprehensive DevContainer-based development environment for local development
 
 [![Build Images](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml/badge.svg)](https://github.com/visheshd/claude-devcontainer/actions/workflows/build-images.yml)
 
+> ⚠️ **CRITICAL: Worktree Creation Requirements**
+> 
+> **ALWAYS use the provided `wt` command to create git worktrees.** Manual `git worktree add` will NOT configure DevContainers properly and will cause mount path errors.
+> 
+> ✅ **Correct**: `wt my-feature` or `cdc wt my-feature`  
+> ❌ **Wrong**: `git worktree add ../my-feature` (breaks DevContainer setup)
+
 📋 **MCP Setup Guide**: See [MCP_SERVERS.md](MCP_SERVERS.md) for customizing or adding more MCP servers
 
 > ⚠️ **Important**: All Docker images must be built locally. This project does not provide pre-built images on Docker Hub or other registries. You must run the build process on your machine before using any DevContainer configurations.
@@ -73,13 +80,19 @@ cdc init
 > ⚠️ **Security Notice**: This will create a DevContainer that mounts your personal `~/.claude` directory (containing API tokens, settings, and credentials). See [Security & Privacy Notice](#-security--privacy-notice) for details and opt-out instructions.
 
 ### 5. Create Feature Worktrees (Recommended Workflow)
+> ⚠️ **REQUIRED**: Use ONLY these commands to create worktrees. Manual `git worktree add` will break DevContainer setup.
+
 ```bash
-# Create worktrees for feature development (all commands work identically)
+# ✅ CORRECT: Use the provided wt command (all work identically)
 claude-devcontainer wt my-feature    # Full command
-cdc wt my-feature                   # Short alias
+cdc wt my-feature                   # Short alias  
 wt my-feature                       # Standalone command
 
+# ❌ WRONG: Never use manual git worktree commands
+# git worktree add ../my-feature    # This breaks DevContainer configuration!
+
 # This creates: ../project-name-my-feature/ with DevContainer ready
+# The wt command automatically configures proper mount paths and environment variables
 ```
 
 ### 6. Open Worktree in VS Code
@@ -127,10 +140,11 @@ claude-devcontainer migrate
 claude-devcontainer init
 cdc init                                  # Short alias
 
-# Create git worktrees for feature development
+# Create git worktrees for feature development (⚠️ REQUIRED: Use these commands only!)
 claude-devcontainer wt my-feature        # Full command
 cdc wt my-feature                        # Short alias  
 wt my-feature                            # Standalone command
+# ❌ NEVER: git worktree add (breaks DevContainer setup)
 
 # Clean up git worktrees and Docker artifacts
 claude-devcontainer cleanup my-feature   # Clean specific worktree
@@ -250,7 +264,7 @@ cdc compose fullstack-nextjs               # Short alias
 ### Layer 3: DevContainer Features
 - **claude-mcp**: Configurable MCP server installation and management
 - **host-ssh-build**: SSH-based builds on host system (macOS native builds)
-- **git-wrapper**: Automated git worktree operations with atomic transaction support
+- **git-wrapper**: Baked into base image, handles worktree path transformations automatically
 
 ## 📋 Available Stacks (Local Builds)
 
@@ -389,15 +403,19 @@ claude-devcontainer init -s custom
 ## 🚀 Features & Capabilities
 
 ### Git Worktree Integration
+
+> ⚠️ **CRITICAL**: Always use the provided `wt` command. Manual `git worktree add` will NOT configure DevContainers properly.
+
 - **CLI Worktree Creation**: Simple commands `cdc wt feature-name` or standalone `wt feature-name`
-- **Automatic Docker Setup**: Worktrees get full DevContainer configuration automatically  
+- **Automatic DevContainer Setup**: `wt` command automatically configures devcontainer.json with proper mount paths
+- **Environment Variables**: Automatically sets all required environment variables for git-wrapper.sh
 - **Intelligent Cleanup**: Post-merge hooks remove worktrees and clean up Docker artifacts
-- **Universal Detection**: Every devcontainer automatically detects main repos vs. worktrees
+- **Direct Configuration**: Writes actual mount paths directly to devcontainer.json (no variable resolution issues)
 - **Template Inheritance**: Single source of truth ensures all devcontainers get worktree support
 - **Automatic Migration**: Old devcontainers can be upgraded with `cdc migrate`
 - **Zero Configuration**: Works seamlessly without manual setup in any git repository
 - **Cross-Platform**: Full compatibility across Apple Silicon, Intel, and Linux
-- **Script Integration**: Git wrapper handles atomic worktree operations transparently
+- **Git Assume Unchanged**: Marks devcontainer.json as unchanged to prevent dirty worktree status
 
 ### Optimized Performance  
 - **Smart Layering**: Optimized Docker images with intelligent caching
@@ -713,6 +731,34 @@ cdc cleanup --interactive
 
 # Preview what would be cleaned without doing it
 cdc cleanup --dry-run --all
+```
+
+**DevContainer mount errors after creating worktree manually**
+```bash
+# ❌ PROBLEM: Used manual git worktree add instead of wt command
+# Error: "invalid mount config" or "mount path must be absolute"
+
+# ✅ SOLUTION: Always use the wt command instead
+cdc wt my-feature           # Creates worktree with proper DevContainer setup
+wt my-feature              # Standalone command also works
+
+# If you already created manually, delete and recreate:
+git worktree remove ../my-feature
+wt my-feature              # This configures DevContainer properly
+```
+
+**Worktree missing DevContainer configuration or environment variables**
+```bash
+# ❌ PROBLEM: Worktree created manually lacks proper setup
+# Missing: containerEnv variables, mount paths, etc.
+
+# ✅ SOLUTION: Always use wt command for worktree creation
+wt my-feature              # Automatically configures all required settings
+
+# The wt command sets up:
+# - Proper mount paths in devcontainer.json
+# - All required environment variables (WORKTREE_HOST_MAIN_REPO, etc.)
+# - Git assume-unchanged to prevent dirty status
 ```
 
 **Worktree directory deleted but git still tracking it**
