@@ -18,6 +18,8 @@ export class FileWriter {
     this.templateManager = new TemplateManager();
     // Resolve scripts directory relative to this file
     this.scriptsDir = path.resolve(__dirname, '../../../../scripts');
+    // Resolve devcontainer scripts directory for templates
+    this.devcontainerScriptsDir = path.resolve(__dirname, '../../../../templates/.devcontainer-scripts');
   }
 
   /**
@@ -26,20 +28,20 @@ export class FileWriter {
    */
   async copyWorktreeScripts() {
     const scriptsNeeded = [
-      'setup-worktree-mounts.sh',
-      'configure-git-wrapper.sh'
+      { name: 'configure-git-wrapper.sh', source: this.scriptsDir },
+      { name: 'get-main-repo-path.sh', source: this.devcontainerScriptsDir }
     ];
 
-    for (const scriptName of scriptsNeeded) {
-      const sourcePath = path.join(this.scriptsDir, scriptName);
-      const targetPath = path.join('.devcontainer', scriptName);
+    for (const script of scriptsNeeded) {
+      const sourcePath = path.join(script.source, script.name);
+      const targetPath = path.join('.devcontainer', script.name);
       
       if (await fs.pathExists(sourcePath)) {
         await fs.copy(sourcePath, targetPath);
         // Make script executable
         await fs.chmod(targetPath, 0o755);
       } else {
-        throw new Error(`Required worktree script not found: ${sourcePath}`);
+        throw new Error(`Required script not found: ${sourcePath}`);
       }
     }
   }
