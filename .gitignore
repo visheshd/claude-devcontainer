@@ -2,6 +2,9 @@
 .env
 .env.local
 
+# Dynamically generated worktree mount configuration
+.devcontainer/worktree.env
+
 # OS files
 .DS_Store
 Thumbs.db

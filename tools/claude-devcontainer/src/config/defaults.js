@@ -324,6 +324,7 @@ export function getDefaultGitignore() {
   return [
     '# DevContainer',
     '.devcontainer/.env',
+    '.devcontainer/worktree.env',
     '',
     '# Environment files',
     '.env',
