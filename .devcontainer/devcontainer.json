@@ -1,10 +1,10 @@
 {
   "name": "Custom Development Environment",
-  "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
+  "initializeCommand": "eval $(.devcontainer/../scripts/get-main-repo-path.sh ${localWorkspaceFolder})",
   "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
-    "source=${localWorkspaceFolder},target=/main-repo,type=bind,consistency=cached"
+    "source=${localEnv:MAIN_REPO_PATH:-${localWorkspaceFolder}},target=/main-repo,type=bind,consistency=cached"
   ],
   "containerEnv": {},
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
