@@ -437,7 +437,7 @@ claude-devcontainer init -s custom
 ```
 
 ### How It Works
-- **Persistent Storage**: Authentication files stored in `~/.claude-docker/auth/`
+- **Persistent Storage**: Authentication files from `~/.claude/`
 - **Runtime Volume Mounts**: Auth files mounted at container startup - NEVER baked into images
 - **Automatic Detection**: Container startup checks for existing credentials
 - **Legacy Support**: Works with both `.credentials.json` (OAuth/API) and `.claude.json` formats  
@@ -457,7 +457,7 @@ docker-compose -f docker-compose.persistent-auth.yml up
 If you prefer manual configuration, see the authentication mounting strategy:
 ```yaml
 volumes:
-  - ~/.claude-docker/auth:/home/claude-user/.claude:rw
+  - ~/.claude:/home/claude-user/.claude:rw
   - ~/.claude-docker/ssh:/home/claude-user/.ssh:rw
 ```
 
@@ -474,12 +474,12 @@ volumes:
 - ✅ **Docker images contain NO authentication data**
 - ✅ **`.dockerignore` prevents auth files from build context**
 - ✅ **Safe to publish images** - no credential leaks possible
-- ✅ **Runtime-only mounting** from `~/.claude-docker/auth/`
+- ✅ **Runtime-only mounting** from `~/.claude/`
 
 ```yaml
 # Safe volume mounting - never in image layers
 volumes:
-  - ~/.claude-docker/auth:/home/claude-user/.claude:rw  # Runtime only!
+  - ~/.claude:/home/claude-user/.claude:rw  # Runtime only!
 ```
 
 ## 🔒 Security & Privacy Notice

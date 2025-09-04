@@ -96,9 +96,6 @@
 
   "remoteUser": "claude-user",
 
-  "mounts": [
-    "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind"
-  ],
 
   "hostRequirements": {
     "cpus": 2,

@@ -12,7 +12,7 @@
   // Mount configuration (will be automatically updated by initializeCommand)
   // The setup script will detect your main repository and add the proper mount
   "mounts": [
-    "source=${localEnv:HOME}/.claude-docker/auth,target=/home/claude-user/.claude,type=bind"
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind"
     // Main repository mount will be added automatically by setup-worktree-mounts.sh
     // Example: "source=/Users/user/Work/main-repo,target=/main-repo,type=bind,consistency=cached"
   ],
