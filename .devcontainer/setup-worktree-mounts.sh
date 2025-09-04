@@ -68,7 +68,6 @@ update_worktree_config() {
         
         # Update mount source path and environment variables
         if jq --arg main_repo "$main_repo_path" \
-           --arg worktree_name "$worktree_name" \
            '
            # Update the main repo mount source path
            .mounts = (.mounts // [] | map(
@@ -77,11 +76,7 @@ update_worktree_config() {
              else
                .
              end
-           )) |
-           # Update environment variables
-           .containerEnv.WORKTREE_DETECTED = "true" |
-           .containerEnv.WORKTREE_HOST_MAIN_REPO = $main_repo |
-           .containerEnv.WORKTREE_NAME = $worktree_name
+           ))
            ' "$temp_clean_file" > "$temp_file" 2>/dev/null; then
             
             mv "$temp_file" "$DEVCONTAINER_JSON"

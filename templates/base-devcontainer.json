@@ -6,24 +6,17 @@
   "initializeCommand": ".devcontainer/setup-worktree-mounts.sh",
   
   // Post-create command runs inside container after creation
-  // This configures the git wrapper environment and validates the setup
-  "postCreateCommand": ".devcontainer/configure-git-wrapper.sh",
+  // This sets up worktree environment variables and configures the git wrapper
+  "postCreateCommand": "sudo startup.sh && .devcontainer/configure-git-wrapper.sh",
   
-  // Mount configuration (will be automatically updated by initializeCommand)
-  // The setup script will detect your main repository and add the proper mount
+  // Mount configuration (main repo mount will be updated by initializeCommand for worktrees)
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
     "source=${localWorkspaceFolder},target=/main-repo,type=bind,consistency=cached"
   ],
   
-  // Environment variables for git wrapper (will be set automatically)
-  "containerEnv": {
-    // These will be populated by the setup script:
-    // "WORKTREE_DETECTED": "true",
-    // "WORKTREE_HOST_MAIN_REPO": "/Users/user/Work/main-repo", 
-    // "WORKTREE_CONTAINER_MAIN_REPO": "/main-repo",
-    // "WORKTREE_NAME": "worktree-name"
-  },
+  // Environment variables for git wrapper (set automatically by startup script in worktrees)
+  "containerEnv": {},
   
   // Container configuration
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
