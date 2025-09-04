@@ -16,7 +16,8 @@ import {
  */
 export function getDefaultMounts() {
   return [
-    'source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind'
+    'source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind',
+    'source=${localWorkspaceFolder},target=/main-repo,type=bind,consistency=cached'
   ];
 }
 
