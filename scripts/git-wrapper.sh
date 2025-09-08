@@ -66,15 +66,98 @@ transform_gitdir_path() {
     echo "$transformed"
 }
 
-# Simplified worktree git handler - no backup files needed
+# Add git safe directory configuration
+ensure_git_safe_directory() {
+    local repo_path="$(pwd)"
+    debug_log "Ensuring safe directory for: $repo_path"
+    
+    # Check if already configured
+    if "$REAL_GIT" config --global --get-all safe.directory | grep -Fxq "$repo_path" 2>/dev/null; then
+        debug_log "Safe directory already configured for: $repo_path"
+        return 0
+    fi
+    
+    # Add safe directory
+    "$REAL_GIT" config --global --add safe.directory "$repo_path" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        debug_log "✅ Added safe directory: $repo_path"
+    else
+        debug_log "⚠️ Failed to add safe directory: $repo_path"
+    fi
+}
+
+# Validate .git file content
+validate_git_file() {
+    local git_file="$1"
+    local content="$2"
+    
+    if [ -z "$content" ]; then
+        debug_log "❌ .git file content is empty"
+        return 1
+    fi
+    
+    if ! echo "$content" | grep -q "^gitdir: " 2>/dev/null; then
+        debug_log "❌ .git file doesn't contain valid gitdir line"
+        return 1
+    fi
+    
+    # Check for multiple lines (corruption indicator)
+    local line_count=$(echo "$content" | wc -l)
+    if [ "$line_count" -gt 1 ]; then
+        debug_log "❌ .git file contains multiple lines (corrupted): $line_count lines"
+        return 1
+    fi
+    
+    debug_log "✅ .git file content is valid"
+    return 0
+}
+
+# Atomic file write operation
+atomic_write_git_file() {
+    local git_file="$1"
+    local content="$2"
+    local temp_file="${git_file}.tmp.$$"
+    
+    debug_log "Writing content atomically to $git_file"
+    debug_log "Using temp file: $temp_file"
+    
+    # Validate content before writing
+    if ! validate_git_file "$git_file" "$content"; then
+        debug_log "❌ Content validation failed, aborting write"
+        return 1
+    fi
+    
+    # Write to temp file
+    if echo "$content" > "$temp_file" 2>/dev/null; then
+        # Atomic move
+        if mv "$temp_file" "$git_file" 2>/dev/null; then
+            debug_log "✅ Atomically wrote content to $git_file"
+            return 0
+        else
+            debug_log "❌ Failed to move temp file to $git_file"
+            rm -f "$temp_file" 2>/dev/null
+            return 1
+        fi
+    else
+        debug_log "❌ Failed to write to temp file $temp_file"
+        rm -f "$temp_file" 2>/dev/null
+        return 1
+    fi
+}
+
+# Improved worktree git handler with atomic operations
 handle_worktree_git() {
     local exit_code=0
     local git_file=".git"
+    local original_content=""
     
-    debug_log "=== SIMPLIFIED WORKTREE GIT HANDLING START ==="
+    debug_log "=== IMPROVED WORKTREE GIT HANDLING START ==="
     debug_log "Handling worktree git command: $*"
     debug_log "Process ID: $$"
     debug_log "Working directory: $(pwd)"
+    
+    # Ensure git safe directory is configured
+    ensure_git_safe_directory
     
     # Check if .git file exists
     if [ ! -f "$git_file" ]; then
@@ -83,9 +166,22 @@ handle_worktree_git() {
         return $?
     fi
     
-    # Store original content for logging
-    local original_content=$(cat "$git_file" 2>/dev/null)
+    # Store original content safely
+    original_content=$(cat "$git_file" 2>/dev/null)
+    if [ -z "$original_content" ]; then
+        debug_log "❌ Failed to read .git file or file is empty"
+        "$REAL_GIT" "$@"
+        return $?
+    fi
+    
     debug_log "Original .git content: $original_content"
+    
+    # Validate original content
+    if ! validate_git_file "$git_file" "$original_content"; then
+        debug_log "❌ Original .git file is corrupted, running git normally"
+        "$REAL_GIT" "$@"
+        return $?
+    fi
     
     # Transform .git file to container paths if it contains gitdir
     if echo "$original_content" | grep -q "gitdir:" 2>/dev/null; then
@@ -93,36 +189,64 @@ handle_worktree_git() {
         local transformed_content=$(transform_gitdir_path "$original_content")
         debug_log "Transformed content: $transformed_content"
         
-        # Write transformed content directly to .git file
-        echo "$transformed_content" > "$git_file"
-        debug_log "✅ Updated .git file with container paths"
+        # Write transformed content atomically
+        if atomic_write_git_file "$git_file" "$transformed_content"; then
+            debug_log "✅ Updated .git file with container paths"
+        else
+            debug_log "❌ Failed to write transformed content, running git normally"
+            "$REAL_GIT" "$@"
+            return $?
+        fi
     else
-        debug_log ".git file doesn't contain gitdir, running normally"
+        debug_log ".git file doesn't contain gitdir, running git normally"
         "$REAL_GIT" "$@"
         return $?
     fi
     
     debug_log "=== WORKTREE GIT HANDLING SETUP COMPLETE ==="
     
-    # Simple cleanup function - only restore host paths
+    # Improved cleanup function with proper error handling
     cleanup() {
-        debug_log "=== CLEANUP: Restoring host paths ==="
+        local cleanup_exit_code=$?
+        debug_log "=== CLEANUP: Restoring host paths (exit_code=$cleanup_exit_code) ==="
         
-        # Always restore host paths after git command
-        if restore_original_host_path; then
-            debug_log "✅ Successfully restored host paths"
+        # Always restore original content after git command
+        if [ -n "$original_content" ]; then
+            if atomic_write_git_file "$git_file" "$original_content"; then
+                debug_log "✅ Successfully restored original .git content"
+            else
+                debug_log "❌ Failed to restore original .git content atomically"
+                # Fallback to direct write if atomic write fails
+                if echo "$original_content" > "$git_file" 2>/dev/null; then
+                    debug_log "✅ Restored original content using fallback method"
+                else
+                    debug_log "❌ CRITICAL: Failed to restore .git file with any method"
+                fi
+            fi
         else
-            debug_log "❌ Failed to restore host paths"
+            debug_log "⚠️ No original content to restore"
         fi
         
-        # Log final state
+        # Log final state and validate
         if [ -f "$git_file" ]; then
             local final_content=$(cat "$git_file" 2>/dev/null || echo "unreadable")
             debug_log "Final .git content: $final_content"
             persistent_log "FINAL_STATE: $final_content"
+            
+            # Validate final state
+            if validate_git_file "$git_file" "$final_content"; then
+                debug_log "✅ Final .git file validation passed"
+            else
+                debug_log "❌ Final .git file validation failed"
+            fi
+        else
+            debug_log "❌ .git file missing after cleanup"
         fi
         
         debug_log "🏁 === GIT WRAPPER EXECUTION END ==="
+        
+        # Preserve original exit code
+        exit $cleanup_exit_code
     }
     trap cleanup EXIT INT TERM
     
@@ -134,11 +258,17 @@ handle_worktree_git() {
     
     # Note: cleanup will be called automatically by trap
     debug_log "Git command completed with exit code: $exit_code"
+    
+    # Store exit code for cleanup function
     return $exit_code
 }
 
-# Function to get or compute the original host path for .git file
+# Legacy functions - kept for backwards compatibility but no longer used
+# The new implementation stores the original content directly in handle_worktree_git()
+
+# Function to get or compute the original host path for .git file (DEPRECATED)
 get_original_host_path() {
+    debug_log "WARNING: Using deprecated get_original_host_path function"
     # If we have a saved host path, use it
     if [ -n "$SAVED_HOST_GIT_PATH" ]; then
         debug_log "Using saved host path: $SAVED_HOST_GIT_PATH"
@@ -177,8 +307,9 @@ get_original_host_path() {
     return 1
 }
 
-# Function to restore original host path (replaces backup-based restore)
+# Function to restore original host path (DEPRECATED)
 restore_original_host_path() {
+    debug_log "WARNING: Using deprecated restore_original_host_path function"
     local original_path=$(get_original_host_path)
     
     if [ -n "$original_path" ]; then
