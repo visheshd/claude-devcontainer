@@ -139,6 +139,15 @@ handle_worktree_git() {
     debug_log "Handling worktree git command: $*"
     debug_log "Using environment variables directly"
 
+    # Ensure safe directory is configured for this workspace
+    if [ -d "/workspaces" ] && pwd | grep -q "^/workspaces"; then
+        current_dir="$(pwd)"
+        if ! "$REAL_GIT" config --global --get-all safe.directory 2>/dev/null | grep -Fxq "$current_dir"; then
+            debug_log "Adding safe directory: $current_dir"
+            "$REAL_GIT" config --global --add safe.directory "$current_dir" 2>/dev/null || debug_log "Failed to add safe directory"
+        fi
+    fi
+
     # Store current content and construct proper host content
     local current_content=""
     if [ -f "$git_file" ]; then

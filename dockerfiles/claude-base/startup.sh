@@ -43,26 +43,7 @@ else
     echo "Your Claude customizations will be created in this container session"
 fi
 
-# Configure Git for safe directory operations (use real git to avoid wrapper)
-echo "Configuring Git safe directories..."
-/usr/bin/git config --global --add safe.directory /workspace 2>/dev/null || true
-/usr/bin/git config --global --add safe.directory /workspaces 2>/dev/null || true
-
-# Add common workspace patterns that might be mounted
-if [ -d "/workspaces" ]; then
-    for dir in /workspaces/*/; do
-        if [ -d "$dir" ]; then
-            /usr/bin/git config --global --add safe.directory "$dir" 2>/dev/null || true
-        fi
-    done
-fi
-
-# Add the current working directory if it's a workspace
-if [ -d "/workspaces" ] && pwd | grep -q "^/workspaces"; then
-    /usr/bin/git config --global --add safe.directory "$(pwd)" 2>/dev/null || true
-fi
-
-echo "✓ Git safe directories configured"
+# Git safe directories are now handled automatically by git-wrapper.sh
 
 echo "Starting Claude Code..."
 
