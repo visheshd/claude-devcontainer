@@ -72,6 +72,14 @@ authenticate() {
 # Set up authentication
 authenticate
 
+# If called without arguments (container startup), run startup script first
+if [ $# -eq 0 ]; then
+    echo "Container startup - running initialization..."
+    if [ -x "/usr/local/bin/startup.sh" ]; then
+        /usr/local/bin/startup.sh
+    fi
+fi
+
 # Check if --dangerously-skip-permissions is already in the arguments
 if [[ "$*" == *"--dangerously-skip-permissions"* ]]; then
     # Already has the flag, run normally
