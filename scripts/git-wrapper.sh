@@ -202,12 +202,17 @@ handle_worktree_git() {
     # Always restore to proper host content using atomic operation
     if atomic_write_git_file "$git_file" "$host_content"; then
         debug_log "✅ Safely restored .git file to host paths"
+        # Tiny delay to ensure file is fully written and available for subsequent commands
+        # This prevents race conditions when AI agents run git commands in rapid succession
+        sleep 0.1 2>/dev/null || sleep 1 2>/dev/null || true
     else
         debug_log "❌ Failed to restore .git file to host paths atomically"
         # Emergency fallback - try to restore what we started with
         if [ -n "$current_content" ]; then
             if echo "$current_content" > "$git_file" 2>/dev/null; then
                 debug_log "⚠️ Emergency restore to original content"
+                # Tiny delay for emergency fallback too
+                sleep 0.1 2>/dev/null || sleep 1 2>/dev/null || true
             else
                 debug_log "❌ CRITICAL: Could not restore .git file"
             fi
