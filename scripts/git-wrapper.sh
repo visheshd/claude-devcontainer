@@ -139,12 +139,17 @@ handle_worktree_git() {
     debug_log "Handling worktree git command: $*"
     debug_log "Using environment variables directly"
 
-    # Ensure safe directory is configured for this workspace
-    if [ -d "/workspaces" ] && pwd | grep -q "^/workspaces"; then
-        current_dir="$(pwd)"
-        if ! "$REAL_GIT" config --global --get-all safe.directory 2>/dev/null | grep -Fxq "$current_dir"; then
-            debug_log "Adding safe directory: $current_dir"
-            "$REAL_GIT" config --global --add safe.directory "$current_dir" 2>/dev/null || debug_log "Failed to add safe directory"
+    # Ensure safe directory is configured for this workspace (with safety checks)
+    current_dir="$(pwd)"
+    if [ -d "/workspaces" ] && echo "$current_dir" | grep -q "^/workspaces" && [ -d "$current_dir" ]; then
+        # Validate that current_dir looks like a safe path
+        if echo "$current_dir" | grep -qE "^/workspaces/[^/]+(/.*)?$"; then
+            if ! "$REAL_GIT" config --global --get-all safe.directory 2>/dev/null | grep -Fxq "$current_dir"; then
+                debug_log "Adding safe directory: $current_dir"
+                "$REAL_GIT" config --global --add safe.directory "$current_dir" 2>/dev/null || debug_log "Failed to add safe directory"
+            fi
+        else
+            debug_log "⚠️ Skipping safe directory for suspicious path: $current_dir"
         fi
     fi
 
@@ -167,12 +172,16 @@ handle_worktree_git() {
     fi
 
     # Construct container .git content directly from environment variables
-    local container_gitdir="$WORKTREE_MOUNT_PATH/.git/worktrees/$WORKTREE_NAME"
+    # Use defaults if environment variables are missing
+    local worktree_mount="${WORKTREE_MOUNT_PATH:-/main-repo}"
+    local worktree_name="${WORKTREE_NAME:-$(basename "$(pwd)")}"
+    local host_repo="${WORKTREE_HOST_MAIN_REPO:-/tmp/fallback}"
+
+    local container_gitdir="$worktree_mount/.git/worktrees/$worktree_name"
     local container_content="gitdir: $container_gitdir"
     debug_log "Container .git content: $container_content"
 
-    # Construct proper host .git content from environment variables
-    local host_gitdir="$WORKTREE_HOST_MAIN_REPO/.git/worktrees/$WORKTREE_NAME"
+    local host_gitdir="$host_repo/.git/worktrees/$worktree_name"
     local host_content="gitdir: $host_gitdir"
     debug_log "Host .git content: $host_content"
 
@@ -233,6 +242,14 @@ main() {
 
     if [ -n "$WORKTREE_HOST_MAIN_REPO" ] && [ -f .git ] && ! echo "$command_string" | grep -qE "$skip_commands"; then
         debug_log "Worktree detected and command needs path translation: WORKTREE_HOST_MAIN_REPO=$WORKTREE_HOST_MAIN_REPO"
+
+        # Basic check - we have a host repo defined
+        if [ -z "$WORKTREE_HOST_MAIN_REPO" ]; then
+            debug_log "⚠️ Missing WORKTREE_HOST_MAIN_REPO, falling back to normal git"
+            "$REAL_GIT" "$@"
+            return $?
+        fi
+
         handle_worktree_git "$@"
         return $?
     fi
