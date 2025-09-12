@@ -2,6 +2,11 @@
   "name": "Rust Tauri Development",
   "image": "claude-rust-tauri:latest",
   
+  // Rust/Tauri specific mounts
+  "mounts": [
+    "source=${localWorkspaceFolder}/.cargo,target=/home/claude-user/.cargo,type=bind"
+  ],
+  
   "customizations": {
     "vscode": {
       "extensions": [

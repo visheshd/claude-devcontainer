@@ -1,58 +1,69 @@
 {
-  "name": "Rust Tauri Desktop App",
-  "image": "claude-rust-tauri:latest",
-  
-  "features": {
-    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
-      "servers": "serena,context7,rust-analyzer,tauri-tools"
-    },
-    "ghcr.io/visheshd/claude-devcontainer/host-ssh-build:1": {
-      "enableMacosBuild": true,
-      "projectTypes": "rust,tauri",
-      "buildCommands": "cargo tauri build,cargo tauri dev --no-open"
-    }
-  },
-  
+  "name": "Test Rust Tauri",
+  "postCreateCommand": "startup.sh",
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/claude-user/.claude,type=bind",
+    "source=${localWorkspaceFolder},target=/main-repo,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.cargo,target=/home/claude-user/.cargo,type=bind"
+  ],
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "claude-user",
   "customizations": {
     "vscode": {
       "extensions": [
         "anthropic.claude-code",
-        "rust-lang.rust-analyzer", 
-        "tauri-apps.tauri-vscode",
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vsliveshare.vsliveshare",
+        "rust-lang.rust-analyzer",
         "vadimcn.vscode-lldb",
         "serayuzgur.crates",
-        "dustypomerleau.rust-syntax"
+        "tauri-apps.tauri-vscode"
       ],
       "settings": {
-        "rust-analyzer.cargo.features": "all",
-        "rust-analyzer.checkOnSave.command": "clippy",
-        "rust-analyzer.imports.granularity.group": "module",
-        "rust-analyzer.completion.addCallParenthesis": false,
+        "git.enableSmartCommit": true,
+        "git.confirmSync": false,
+        "git.autofetch": true,
+        "editor.formatOnSave": true,
+        "terminal.integrated.defaultProfile.linux": "zsh",
         "files.associations": {
-          "*.rs": "rust"
-        }
+          "*.env.*": "properties"
+        },
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.cargo.features": "all"
       }
     }
   },
-  
-  "forwardPorts": [1420, 3000],
+  "features": {
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
+      "servers": "serena,context7"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+  "onCreateCommand": {
+    "install-deps": "echo 'Base container ready - stack-specific setup will run next'"
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb"
+  },
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/claude-user/.claude"
+  },
+  "image": "claude-rust-tauri:latest",
+  "forwardPorts": [
+    1420,
+    3000,
+    8080
+  ],
   "portsAttributes": {
     "1420": {
       "label": "Tauri Dev Server",
       "onAutoForward": "notify"
-    },
-    "3000": {
-      "label": "Frontend Dev Server",
-      "onAutoForward": "ignore"
     }
-  },
-  
-  "postCreateCommand": "cargo fetch && echo '🦀 Rust Tauri environment ready!'",
-  
-  "remoteUser": "claude-user",
-  "workspaceFolder": "/workspace",
-  
-  "mounts": [
-    "source=${localWorkspaceFolder}/.cargo,target=/home/claude-user/.cargo,type=bind"
-  ]
+  }
 }
