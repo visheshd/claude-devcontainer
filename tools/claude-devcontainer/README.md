@@ -809,6 +809,55 @@ If MCP servers fail to install:
 
 The CLI includes powerful Git worktree management with the `wt` command.
 
+### Shell Integration
+
+#### The Directory Changing Problem
+
+When you run `wt feature-name`, the command creates the worktree but **your shell stays in the current directory**. This is because:
+- The `wt` command runs in a child process
+- Child processes cannot change their parent shell's directory
+- This is a fundamental limitation of how Unix shells work
+
+#### Solution 1: Shell Function Wrapper (Recommended)
+
+Source the provided shell wrapper for automatic directory changing:
+
+**Setup (one-time):**
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+source /path/to/tools/claude-devcontainer/bin/wt.sh
+```
+
+**Usage:**
+```bash
+wt my-feature
+# Automatically changes to ../project-name-my-feature/ ✅
+```
+
+**How it works:**
+1. Captures the `wt` command output
+2. Parses the `cd` command
+3. Executes it in your current shell
+4. Shows confirmation message
+
+#### Solution 2: Using eval
+
+No setup required, but less convenient:
+
+```bash
+eval $(wt my-feature)
+```
+
+#### Solution 3: Manual Approach
+
+If you prefer explicit control:
+
+```bash
+wt my-feature
+# Note the output path
+cd ../project-name-my-feature
+```
+
 ### Basic Worktree Creation
 
 ```bash

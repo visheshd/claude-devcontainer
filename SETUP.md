@@ -71,6 +71,35 @@ cdc                   # Short alias (recommended)
 wt                    # Standalone worktree command
 ```
 
+### 3. Optional: Shell Integration for Automatic Directory Changing
+
+To automatically change directories after creating worktrees:
+
+**For Bash (~/.bashrc):**
+```bash
+# Add this line to ~/.bashrc
+source /path/to/claude-docker/tools/claude-devcontainer/bin/wt.sh
+```
+
+**For Zsh (~/.zshrc):**
+```bash
+# Add this line to ~/.zshrc
+source /path/to/claude-docker/tools/claude-devcontainer/bin/wt.sh
+```
+
+**Verify setup:**
+```bash
+source ~/.bashrc  # or source ~/.zshrc
+wt --help
+```
+
+After sourcing, the `wt` command will automatically change to the new worktree directory.
+
+**Alternative (no setup required):**
+```bash
+eval $(wt my-feature)  # One-line solution
+```
+
 ## Building Images
 
 > **Important**: All Docker images must be built locally. This project does not provide pre-built images.
