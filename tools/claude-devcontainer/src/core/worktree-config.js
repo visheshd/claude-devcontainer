@@ -7,7 +7,7 @@ import os from 'os';
  * Supports global, project-local, and user-specific configurations
  */
 
-const CONFIG_FILE_NAME = '.claude-worktree-config.json';
+const CONFIG_FILE_NAME = '.worktree-config.json';
 
 /**
  * Default configuration values
@@ -40,6 +40,17 @@ const DEFAULT_CONFIG = {
     confirmByDefault: true,
     verboseLogging: false,
     autoCleanupMerged: false
+  },
+
+  // Post-creation hooks
+  hooks: {
+    postWorktreeCreate: {
+      enabled: false,              // Must be explicitly enabled
+      commands: [],                // String or array of commands
+      continueOnError: true,       // Continue on failure vs stop
+      timeout: 300000,             // Timeout in ms (5 min default)
+      env: {}                      // Additional environment variables for commands
+    }
   }
 };
 
@@ -246,6 +257,24 @@ export function generateDockerArtifactNames(worktreeName, config = null) {
     volumePattern: docker.volumePattern.replace(/\${worktreeName}/g, worktreeName),
     networkPattern: docker.networkPattern.replace(/\${worktreeName}/g, worktreeName)
   };
+}
+
+/**
+ * Validate hook configuration
+ */
+export function validateHookConfig(hookConfig) {
+  if (!hookConfig?.enabled) return { valid: true };
+
+  const { commands } = hookConfig;
+  if (!Array.isArray(commands) && typeof commands !== 'string') {
+    throw new Error('hooks.postWorktreeCreate.commands must be a string or array');
+  }
+
+  if (Array.isArray(commands) && commands.length === 0) {
+    throw new Error('hooks.postWorktreeCreate.commands cannot be empty when enabled');
+  }
+
+  return { valid: true };
 }
 
 /**

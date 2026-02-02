@@ -76,6 +76,30 @@ wt my-feature         # Standalone command
 # git worktree add ../my-feature    # This breaks DevContainer setup!
 ```
 
+#### Shell Integration for Automatic Directory Changing
+
+By default, the `wt` command will print the new worktree path but won't change your shell's directory (child processes can't modify parent shell environment).
+
+**Recommended: Source the shell wrapper**
+```bash
+# Add to ~/.bashrc or ~/.zshrc (one-time setup)
+source /path/to/claude-docker/tools/claude-devcontainer/bin/wt.sh
+
+# After sourcing, use normally
+wt my-feature  # Automatically changes directory! ✨
+```
+
+**Alternative: Use eval (no setup required)**
+```bash
+eval $(wt my-feature)  # Works immediately, but less convenient
+```
+
+**Manual workflow (if you prefer explicit control):**
+```bash
+wt my-feature
+cd ../project-name-my-feature
+```
+
 ### 5. Open in VS Code
 ```bash
 cd ../project-name-my-feature

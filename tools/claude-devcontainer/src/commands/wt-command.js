@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { generateWorktreePath, loadWorktreeConfig } from '../core/worktree-config.js';
 import { safeGitExec, validateFeatureName, validateWorktreePath } from '../core/secure-shell.js';
+import { executePostCreationHooks } from '../utils/hook-executor.js';
 
 /**
  * Handle the wt (worktree) command for creating new worktrees
@@ -155,6 +156,19 @@ export async function handleWt(featureName, branchRef = null) {
       } catch (error) {
         console.log(chalk.yellow('⚠️  Failed to configure devcontainer'));
         console.log(chalk.gray(error.message));
+      }
+    }
+
+    // Execute post-creation hooks if configured
+    const hooks = config.hooks?.postWorktreeCreate;
+    if (hooks?.enabled) {
+      try {
+        executePostCreationHooks(worktreePath, hooks);
+      } catch (error) {
+        // Hook execution failed and continueOnError was false
+        console.log(chalk.yellow('\n⚠️  Post-creation hooks failed'));
+        console.log(chalk.yellow('Worktree created but hooks did not complete successfully'));
+        process.exit(1);
       }
     }
 

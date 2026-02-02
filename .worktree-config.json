@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "postWorktreeCreate": {
+      "enabled": false,
+      "commands": [
+        "pnpm install",
+        "cd apps/desktop && pnpm run ui:build"
+      ],
+      "continueOnError": false,
+      "timeout": 600000
+    }
+  }
+}

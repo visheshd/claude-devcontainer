@@ -804,3 +804,261 @@ If MCP servers fail to install:
 3. **Check image availability:**
    - Ensure images are built locally or available in your registry
    - Update image names/tags if using custom registry
+
+## Worktree Management
+
+The CLI includes powerful Git worktree management with the `wt` command.
+
+### Shell Integration
+
+#### The Directory Changing Problem
+
+When you run `wt feature-name`, the command creates the worktree but **your shell stays in the current directory**. This is because:
+- The `wt` command runs in a child process
+- Child processes cannot change their parent shell's directory
+- This is a fundamental limitation of how Unix shells work
+
+#### Solution 1: Shell Function Wrapper (Recommended)
+
+Source the provided shell wrapper for automatic directory changing:
+
+**Setup (one-time):**
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+source /path/to/tools/claude-devcontainer/bin/wt.sh
+```
+
+**Usage:**
+```bash
+wt my-feature
+# Automatically changes to ../project-name-my-feature/ ✅
+```
+
+**How it works:**
+1. Captures the `wt` command output
+2. Parses the `cd` command
+3. Executes it in your current shell
+4. Shows confirmation message
+
+#### Solution 2: Using eval
+
+No setup required, but less convenient:
+
+```bash
+eval $(wt my-feature)
+```
+
+#### Solution 3: Manual Approach
+
+If you prefer explicit control:
+
+```bash
+wt my-feature
+# Note the output path
+cd ../project-name-my-feature
+```
+
+### Basic Worktree Creation
+
+```bash
+# Create a new worktree with automatic branch creation
+cdc wt feature-name
+
+# Create from a specific branch/tag/commit
+cdc wt feature-name origin/main
+cdc wt bugfix-123 v1.2.3
+```
+
+### Worktree Configuration
+
+Create `.worktree-config.json` in your project root to customize worktree behavior:
+
+```json
+{
+  "worktreePathPattern": "../${gitRoot}-${featureName}",
+  "hooks": {
+    "postWorktreeCreate": {
+      "enabled": true,
+      "commands": [
+        "pnpm install",
+        "cd apps/desktop && pnpm run ui:build"
+      ],
+      "continueOnError": false,
+      "timeout": 600000
+    }
+  }
+}
+```
+
+### Post-Creation Hooks
+
+Automatically run commands after worktree creation to prepare your development environment.
+
+#### Configuration Options
+
+- **`enabled`**: Enable/disable hook execution (default: `false`)
+- **`commands`**: String or array of commands to execute
+- **`continueOnError`**: Continue if a command fails (default: `true`)
+- **`timeout`**: Maximum execution time in milliseconds (default: 300000 = 5 minutes)
+- **`env`**: Additional environment variables for hook commands
+
+#### Common Use Cases
+
+**1. Install Dependencies**
+```json
+{
+  "hooks": {
+    "postWorktreeCreate": {
+      "enabled": true,
+      "commands": ["pnpm install"],
+      "continueOnError": false,
+      "timeout": 600000
+    }
+  }
+}
+```
+
+**2. Build Assets**
+```json
+{
+  "hooks": {
+    "postWorktreeCreate": {
+      "enabled": true,
+      "commands": [
+        "pnpm install",
+        "pnpm run build:assets"
+      ],
+      "continueOnError": false
+    }
+  }
+}
+```
+
+**3. Database Setup**
+```json
+{
+  "hooks": {
+    "postWorktreeCreate": {
+      "enabled": true,
+      "commands": [
+        "pnpm install",
+        "npx prisma generate",
+        "npx prisma migrate dev"
+      ],
+      "continueOnError": false,
+      "timeout": 900000
+    }
+  }
+}
+```
+
+**4. Multiple Steps with Custom Environment**
+```json
+{
+  "hooks": {
+    "postWorktreeCreate": {
+      "enabled": true,
+      "commands": [
+        "echo 'Setting up worktree...'",
+        "pnpm install",
+        "pnpm run db:setup",
+        "pnpm run build"
+      ],
+      "continueOnError": false,
+      "env": {
+        "NODE_ENV": "development",
+        "DATABASE_URL": "postgresql://localhost:5432/dev"
+      }
+    }
+  }
+}
+```
+
+#### Hook Execution Details
+
+- **Execution Directory**: Hooks run in the newly created worktree directory
+- **Shell**: Commands execute via host shell (bash/zsh) with full shell features
+- **Output**: Live output is shown during execution (progress bars, logs, etc.)
+- **Error Handling**: Clear success/failure messages for each command
+- **Timeout Protection**: Commands that hang are killed after timeout
+
+#### Example Output
+
+```bash
+$ cdc wt my-feature
+
+🚀 Creating worktree: ../claude-docker-my-feature
+✅ Created worktree at: ../claude-docker-my-feature
+✅ Created branch: my-feature
+📋 Copied .env file from main worktree
+🔧 Configuring devcontainer for worktree...
+
+🔨 Running post-creation hooks...
+  ▶ Running: pnpm install
+  [pnpm progress output...]
+  ✅ Success: pnpm install
+  ▶ Running: cd apps/desktop && pnpm run ui:build
+  [build output...]
+  ✅ Success: cd apps/desktop && pnpm run ui:build
+✅ Post-creation hooks complete
+
+📁 Switching to worktree: ../claude-docker-my-feature
+```
+
+#### Error Handling Modes
+
+**Stop on Error** (`continueOnError: false`):
+```bash
+🔨 Running post-creation hooks...
+  ▶ Running: echo 'Starting setup'
+✅ Starting setup
+  ✅ Success: echo 'Starting setup'
+  ▶ Running: false
+  ❌ Failed: false
+     Error: Command failed: false
+
+⚠️  Stopping hook execution due to error
+⚠️  Post-creation hooks failed
+Worktree created but hooks did not complete successfully
+```
+
+**Continue on Error** (`continueOnError: true`):
+```bash
+🔨 Running post-creation hooks...
+  ▶ Running: command-that-fails
+  ❌ Failed: command-that-fails
+     Error: Command failed: command-that-fails
+  ▶ Running: echo 'This still runs'
+✅ This still runs
+  ✅ Success: echo 'This still runs'
+✅ Post-creation hooks complete
+```
+
+### Configuration Levels
+
+Configurations are merged in priority order:
+
+1. **Project** (`.worktree-config.json` in project root) - Recommended
+2. **User Global** (`~/.config/claude-devcontainer/worktree-config.json`)
+3. **System** (`/etc/claude-devcontainer/worktree-config.json`)
+4. **Defaults** (built-in)
+
+Later configurations override earlier ones.
+
+### Troubleshooting Hooks
+
+**Hooks not running:**
+- Verify `enabled: true` in configuration
+- Check configuration file is valid JSON
+- Ensure commands are properly quoted
+
+**Commands failing:**
+- Run commands manually in worktree to test
+- Check timeout value (increase if needed)
+- Review command output for error messages
+- Use absolute paths or check working directory assumptions
+
+**Timeout issues:**
+- Increase `timeout` value (in milliseconds)
+- Split long-running commands into separate hook entries
+- Consider running very long operations manually after worktree creation
