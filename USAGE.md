@@ -83,12 +83,44 @@ cdc cleanup --interactive
 cdc cleanup --dry-run --all
 ```
 
+### Reviewing & Resuming Worktrees
+
+Use `wt status` to get a visual overview of all active worktrees and jump
+straight into the right Claude Code session:
+
+```bash
+wt status   # interactive picker (alias: wt ls, cdc status)
+```
+
+Output example:
+```
+  1. user-stats-gamification
+     /Users/you/project-user-stats-gamification
+     [████████████░░░░░░░░]  2 hours ago
+     "feat: add weekly XP leaderboard"
+     17 file(s) changed · 3 ahead
+     🤖 "track-users-wpm-speed-iridescent-micali"  2m ago
+
+  2. feature-auth
+     /Users/you/project-feature-auth
+     [███░░░░░░░░░░░░░░░░░]  3 days ago
+     "feat: add OAuth2 flow"
+     clean · 1 ahead
+     🤖 "oauth-flow-implementation"  1d ago
+```
+
+After selecting a worktree, you can:
+- **Resume** the last Claude Code session (picks up exactly where you left off)
+- **Start** a fresh Claude Code session
+- **Switch** your shell into that directory
+
 ### Worktree Best Practices
 
 1. **Use descriptive names**: `wt feature-user-auth` instead of `wt fix`
-2. **Clean up regularly**: Use `cdc cleanup --merged` after releases
-3. **Isolate features**: One feature per worktree for cleaner development
-4. **Test before merge**: Each worktree has isolated container environment
+2. **Review with `wt status`**: Quickly see which branches have active work
+3. **Clean up regularly**: Use `cdc cleanup --merged` after releases
+4. **Isolate features**: One feature per worktree for cleaner development
+5. **Test before merge**: Each worktree has isolated container environment
 
 ## Multi-Service Development
 

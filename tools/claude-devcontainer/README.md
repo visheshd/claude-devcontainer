@@ -869,6 +869,45 @@ cdc wt feature-name origin/main
 cdc wt bugfix-123 v1.2.3
 ```
 
+### Reviewing Active Worktrees (`wt status`)
+
+`wt status` (alias `wt ls`) gives you a live dashboard of all worktrees sorted
+by most recent activity, with an interactive picker to jump straight into a
+Claude Code session.
+
+```bash
+wt status   # interactive picker
+wt ls       # same, short alias
+cdc status  # equivalent via cdc
+```
+
+**What it shows for each worktree:**
+
+```
+  1. user-stats-gamification
+     /Users/you/project-user-stats-gamification
+     [████████████░░░░░░░░]  2 hours ago
+     "feat: add weekly XP leaderboard"
+     17 file(s) changed · 3 ahead
+     🤖 "track-users-wpm-speed-iridescent-micali"  2m ago
+```
+
+- **Activity bar** — 20-char `█░` bar; score = commits-ahead×3 + staged×2 + changed files (max 30)
+- **Age color** — green (<24 h), yellow (<7 d), gray (older)
+- **Sort order** — by effective last-activity timestamp: `max(last_commit, git_index_mtime)` so worktrees with uncommitted changes surface above clean branches sharing the same base commit
+- **Claude session** — last session title + age, read from `~/.claude/projects/`
+
+**After selecting a worktree, choose an action:**
+
+| Action | What happens |
+|--------|-------------|
+| Resume last Claude session | Spawns `claude --resume <sessionId>` in that worktree |
+| Start new Claude session | Spawns `claude` in that worktree |
+| Switch to directory | Outputs `cd /path` — captured by `wt.sh` to change your shell's cwd |
+| Cancel | Exits cleanly |
+
+> **Shell integration required for "Switch to directory"**: the `wt.sh` wrapper must be sourced (see [Shell Integration](#shell-integration) above) so `cd` is applied to your current shell.
+
 ### Worktree Configuration
 
 Create `.worktree-config.json` in your project root to customize worktree behavior:

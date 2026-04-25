@@ -107,6 +107,17 @@ code .
 # Command Palette: "Dev Containers: Reopen in Container"
 ```
 
+### 5b. Review Active Worktrees
+```bash
+wt status   # Interactive worktree picker — see all branches at a glance
+```
+
+Shows every worktree sorted by latest activity with an ASCII activity bar, last
+commit info, and the last Claude session per worktree. Select one to:
+- **Resume** the last Claude Code session in that branch
+- **Start** a new Claude Code session there
+- **Switch** your shell into that directory
+
 ### 6. Cleanup Worktrees
 ```bash
 # Automatic cleanup after merging
@@ -226,6 +237,7 @@ cdc compose python-ml-services # Python ML + Vector DB + Redis
 cdc init [--stack <name>]        # Initialize DevContainer
 cdc compose <template>           # Initialize multi-service setup
 cdc wt <name>                   # Create worktree (⚠️ REQUIRED for worktrees)
+wt status                       # Review all worktrees + resume Claude sessions
 
 # Management  
 cdc cleanup <name>              # Clean specific worktree
