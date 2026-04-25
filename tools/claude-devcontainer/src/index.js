@@ -161,9 +161,14 @@ function createProgram() {
   // Worktree command
   program
     .command('wt <feature-name> [branch-ref]')
-    .description('Create a new git worktree for feature development')
+    .description('Create a new git worktree for feature development (use "wt status" to view all worktrees)')
     .action(async (featureName, branchRef) => {
       try {
+        // Allow `wt status` / `wt ls` as shorthand for the status subcommand
+        if (featureName === 'status' || featureName === 'ls') {
+          await handleStatus();
+          return;
+        }
         await handleWt(featureName, branchRef);
       } catch (error) {
         console.error(chalk.red(formatErrorForCLI(error)));
