@@ -12,6 +12,7 @@ import { handleServices } from './commands/services-command.js';
 import { handleComposeTemplate } from './commands/compose-command.js';
 import { handleWt } from './commands/wt-command.js';
 import { handleCleanup } from './commands/cleanup-command.js';
+import { handleStatus } from './commands/status-command.js';
 
 // Import error handling
 import { formatErrorForCLI } from './core/devcontainer-error.js';
@@ -164,6 +165,20 @@ function createProgram() {
     .action(async (featureName, branchRef) => {
       try {
         await handleWt(featureName, branchRef);
+      } catch (error) {
+        console.error(chalk.red(formatErrorForCLI(error)));
+        process.exit(1);
+      }
+    });
+
+  // Status command
+  program
+    .command('status')
+    .alias('ls')
+    .description('Show all worktrees ordered by activity and optionally resume a Claude session')
+    .action(async () => {
+      try {
+        await handleStatus();
       } catch (error) {
         console.error(chalk.red(formatErrorForCLI(error)));
         process.exit(1);

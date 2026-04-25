@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 
-// Standalone worktree command - calls the main CLI with 'wt' command
+// Standalone worktree command - routes to the appropriate subcommand
 import('../src/index.js').then(module => {
-  // Set up argv to call the wt command
   const originalArgv = process.argv;
-  process.argv = ['node', 'wt', 'wt', ...originalArgv.slice(2)];
-  
-  // Call the default export (main function)
+  const firstArg = originalArgv[2];
+
+  // `wt status` and `wt ls` route to the status subcommand
+  if (firstArg === 'status' || firstArg === 'ls') {
+    process.argv = ['node', 'wt', 'status', ...originalArgv.slice(3)];
+  } else {
+    // Default: treat args as feature-name [branch-ref] for worktree creation
+    process.argv = ['node', 'wt', 'wt', ...originalArgv.slice(2)];
+  }
+
   if (module.default && typeof module.default === 'function') {
     module.default();
   }
