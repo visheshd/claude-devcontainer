@@ -68,44 +68,64 @@ function getWorktreeGitData(wtPath) {
     ahead = 0;
   }
 
-  return { timestamp, relativeTime, subject, ahead };
+  // Effective timestamp: also consider git index mtime so unstaged/staged changes
+  // rank dirty worktrees above clean ones that share the same base commit.
+  let effectiveTimestamp = timestamp;
+  try {
+    const gitMarker = path.join(wtPath, '.git');
+    let indexPath;
+    if (fs.statSync(gitMarker).isFile()) {
+      // Worktree: .git is a file with "gitdir: /path/to/gitdir"
+      const gitdir = fs.readFileSync(gitMarker, 'utf8').replace('gitdir:', '').trim();
+      indexPath = path.join(gitdir, 'index');
+    } else {
+      indexPath = path.join(gitMarker, 'index');
+    }
+    const indexMtime = Math.floor(fs.statSync(indexPath).mtimeMs / 1000);
+    effectiveTimestamp = Math.max(timestamp, indexMtime);
+  } catch { /* leave effectiveTimestamp = commit timestamp */ }
+
+  return { timestamp, effectiveTimestamp, relativeTime, subject, ahead };
 }
 
 // ── Claude session lookup ─────────────────────────────────────────────────────
 
+// Claude encodes paths by replacing every non-alphanumeric char with '-'
 function encodePath(wtPath) {
-  return wtPath.replace(/\//g, '-');
+  return wtPath.replace(/[^a-zA-Z0-9]/g, '-');
 }
 
 function getClaudeSessionInfo(wtPath) {
   try {
-    const claudeJson = path.join(os.homedir(), '.claude', '.claude.json');
-    const raw = fs.readFileSync(claudeJson, 'utf8');
-    const data = JSON.parse(raw);
-    const project = data?.projects?.[wtPath];
-    if (!project?.lastSessionId) return null;
+    const projectDir = path.join(os.homedir(), '.claude', 'projects', encodePath(wtPath));
+    if (!fs.existsSync(projectDir)) return null;
 
-    const sessionId = project.lastSessionId;
-    const encoded = encodePath(wtPath);
-    const sessionFile = path.join(os.homedir(), '.claude', 'projects', encoded, `${sessionId}.jsonl`);
+    // Find the most recently modified .jsonl file — skip sub-directories
+    const files = fs.readdirSync(projectDir)
+      .filter(f => f.endsWith('.jsonl'))
+      .map(f => {
+        const full = path.join(projectDir, f);
+        return { full, mtime: fs.statSync(full).mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
 
-    if (!fs.existsSync(sessionFile)) return null;
+    if (files.length === 0) return null;
 
-    const mtime = fs.statSync(sessionFile).mtime;
-    const ageSeconds = Math.floor((Date.now() - mtime.getTime()) / 1000);
+    const { full: sessionFile, mtime } = files[0];
+    const sessionId = path.basename(sessionFile, '.jsonl');
+    const ageSeconds = Math.floor((Date.now() - mtime) / 1000);
 
-    // Scan first 10 lines for a slug
+    // Scan first 20 lines for a slug
     let slug = null;
     const content = fs.readFileSync(sessionFile, 'utf8');
-    const lines = content.split('\n').slice(0, 10);
-    for (const line of lines) {
+    for (const line of content.split('\n').slice(0, 20)) {
       try {
         const entry = JSON.parse(line);
         if (entry.slug) { slug = entry.slug; break; }
       } catch { /* skip */ }
     }
 
-    return { sessionId, slug, ageSeconds, mtime };
+    return { sessionId, slug, ageSeconds };
   } catch {
     return null;
   }
@@ -125,7 +145,10 @@ function renderWorktreeBlock(data, index) {
   );
   const bar = renderBar(score);
 
-  const branch = wt.branch || chalk.yellow('(detached HEAD)');
+  // Branch name always bright so it's visible on any terminal background
+  const branchLabel = wt.branch
+    ? chalk.bold.white(wt.branch)
+    : chalk.bold.yellow('(detached HEAD)');
   const mainTag = wt.isMainRepo ? chalk.dim(' [main]') : '';
   const relTime = gitData.timestamp > 0 ? gitData.relativeTime : 'no commits';
 
@@ -135,7 +158,7 @@ function renderWorktreeBlock(data, index) {
 
   const statusStr = statusData.isClean
     ? chalk.dim('clean')
-    : chalk.dim(`${statusData.totalChanges} file(s) changed`);
+    : chalk.yellow(`${statusData.totalChanges} file(s) changed`);
 
   const aheadStr = gitData.ahead > 0 ? chalk.dim(` · ${gitData.ahead} ahead`) : '';
 
@@ -145,13 +168,13 @@ function renderWorktreeBlock(data, index) {
     const sessionLabel = sessionInfo.slug
       ? `"${sessionInfo.slug.slice(0, 45)}"`
       : sessionInfo.sessionId.slice(0, 8) + '…';
-    sessionLine = `\n  ${chalk.dim('🤖 Last session:')} ${chalk.dim(sessionLabel)}  ${chalk.dim(sessionAge)}`;
+    sessionLine = `\n     ${chalk.cyan('🤖')} ${chalk.dim(sessionLabel)}  ${chalk.dim(sessionAge)}`;
   }
 
   print(
-    `  ${chalk.bold(`${index + 1}.`)} ${color(chalk.bold(branch))}${mainTag}\n` +
+    `  ${chalk.bold(`${index + 1}.`)} ${branchLabel}${mainTag}\n` +
     `     ${chalk.dim(wt.path)}\n` +
-    `     ${color('[' + bar + ']')}  ${chalk.dim(relTime)}\n` +
+    `     ${color('[' + bar + ']')}  ${color(relTime)}\n` +
     `     ${chalk.dim('"' + subjectTrunc + '"')}\n` +
     `     ${statusStr}${aheadStr}${sessionLine}`
   );
@@ -195,8 +218,13 @@ export async function handleStatus() {
   });
   console.log = _origLog;
 
-  // 3. Sort by latest commit timestamp descending
-  allData.sort((a, b) => b.gitData.timestamp - a.gitData.timestamp);
+  // 3. Sort by effective timestamp (commit or index mtime, whichever is newer),
+  //    then by total file changes as tiebreaker so active dirty worktrees surface first.
+  allData.sort((a, b) => {
+    const tsDiff = b.gitData.effectiveTimestamp - a.gitData.effectiveTimestamp;
+    if (tsDiff !== 0) return tsDiff;
+    return b.statusData.totalChanges - a.statusData.totalChanges;
+  });
 
   // 4. Display
   print('');
