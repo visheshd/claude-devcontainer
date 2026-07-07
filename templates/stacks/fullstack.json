@@ -1,0 +1,82 @@
+{
+  "name": "Full-Stack Application Development",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.vscode-typescript-next",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense",
+        "wix.vscode-import-cost",
+        "ckolkman.vscode-postgres",
+        "ms-vscode.vscode-docker",
+        "prisma.prisma",
+        "usernamehw.errorlens",
+        "dbaeumer.vscode-eslint"
+      ],
+      "settings": {
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "typescript.suggest.autoImports": true,
+        "typescript.preferences.includePackageJsonAutoImports": "auto",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit",
+          "source.organizeImports": "explicit"
+        },
+        "emmet.includeLanguages": {
+          "javascript": "javascriptreact",
+          "typescript": "typescriptreact"
+        },
+        "tailwindCSS.includeLanguages": {
+          "typescript": "typescript",
+          "typescriptreact": "typescriptreact"
+        }
+      }
+    }
+  },
+
+  "forwardPorts": [3000, 3001, 5432, 6379, 8025, 9000, 9001],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js App",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "API Server",
+      "onAutoForward": "silent"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    },
+    "6379": {
+      "label": "Redis",
+      "onAutoForward": "silent"
+    },
+    "8025": {
+      "label": "Mailhog UI",
+      "onAutoForward": "silent"
+    },
+    "9000": {
+      "label": "MinIO S3 API",
+      "onAutoForward": "silent"
+    },
+    "9001": {
+      "label": "MinIO Console",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "features": {
+    "ghcr.io/visheshd/claude-devcontainer/claude-mcp:1": {
+      "servers": "serena,context7,web-dev-tools,nextjs-tools"
+    }
+  },
+
+  "postCreateCommand": "pnpm install || npm install || echo 'No package.json found'",
+
+  "containerEnv": {
+    "NODE_ENV": "development"
+  }
+}
