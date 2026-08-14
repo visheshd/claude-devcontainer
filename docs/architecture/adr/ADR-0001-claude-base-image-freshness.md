@@ -111,6 +111,28 @@ entry point the installed version declares, so this fix does not reintroduce
 a hardcoded internal path that can break again on the next claude-code
 packaging change.
 
+**CI's build-base job used the wrong context and never actually built this
+image.** `.github/workflows/build-images.yml`'s `build-base` job passed
+`context: dockerfiles/claude-base`, but `dockerfiles/claude-base/Dockerfile`
+`COPY`s repo-root-relative paths (`scripts/git-wrapper.sh`,
+`scripts/claude-wrapper.sh`, `scripts/git_utils.py`,
+`dockerfiles/claude-base/startup.sh`) - none of which resolve from that
+context, so every CI run of this job failed the build outright (reproduced
+locally: `docker build -f dockerfiles/claude-base/Dockerfile
+dockerfiles/claude-base` fails with `"/dockerfiles/claude-base/startup.sh":
+not found`). This had nothing to do with the version-rot fix above - it
+predates this change and is a separate, pre-existing bug that only surfaced
+once this PR's build actually ran in CI. Fixed by pointing the job at
+`context: .` with an explicit `file: dockerfiles/claude-base/Dockerfile`,
+matching what `dockerfiles/claude-base/build.sh` (the documented local build
+path) already does. Rejected making the Dockerfile self-contained instead
+(copying `scripts/*` into `dockerfiles/claude-base/`): those scripts are
+shared with the repo-root `Dockerfile`'s own build, and a second copy is
+exactly the kind of silent-drift hazard this ADR exists to close off. The
+three derived-image jobs (`nextjs`, `python-ml`, `rust-tauri`) keep their
+own per-image contexts unchanged - none of their Dockerfiles have any `COPY`
+instructions, so they were never affected by this bug.
+
 ## Evidence
 
 - `docker inspect claude-base:latest` before rebuild: `Created:
@@ -130,6 +152,12 @@ packaging change.
   `CLAUDE_CONFIG_DIR=/captain/claude-cap`:
   `echo "reply with exactly: OK" | claude -p --output-format text` → `OK`,
   exit 0, no `allowedTools` error, no stack overflow.
+- CI context bug reproduced locally with the exact broken invocation
+  (`context: dockerfiles/claude-base`); fix re-verified by rebuilding with
+  the exact CI-equivalent invocation (`context: .`, `file:
+  dockerfiles/claude-base/Dockerfile`) and repeating both the version check
+  (2.1.232) and the full credential-seeding end-to-end proof above - both
+  passed unchanged.
 
 ## Consequences
 
