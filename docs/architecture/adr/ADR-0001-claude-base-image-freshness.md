@@ -154,6 +154,25 @@ real QEMU emulation locally (`docker buildx build --platform linux/amd64`
 other direction) - the delta step and the full build both succeeded, and the
 resulting emulated image ran `claude --version` / `delta --version` cleanly.
 
+**`build-stacks` still fails in CI - pre-existing, unrelated, not fixed
+here.** With both bugs above fixed, `build-base` now passes in real CI
+(confirmed: run `31794388225`, 5m33s). The three `build-stacks` matrix jobs
+(`nextjs`, `python-ml`, `rust-tauri`) still fail, but for a third, distinct,
+and older reason that this PR does not touch: both `build-base` and
+`build-stacks` set `push: ${{ github.event_name != 'pull_request' }}`, so on
+a PR event `build-base` never actually pushes `claude-base` to `ghcr.io` -
+and `build-stacks`' `FROM ${BASE_IMAGE}` then fails immediately with `403
+Forbidden` trying to pull an image that was never published. `git log
+--follow -p` on this workflow file shows both `push:` lines were introduced
+together in the same original commit that created the workflow - this gap
+has existed since day one and would fail identically on any PR touching
+`dockerfiles/**`, with or without this change. Fixing it means redesigning
+how the matrix validates on PR events (e.g. `--load` instead of `--push` for
+PR runs, or passing the base image via the buildx cache instead of a
+registry round-trip) - a change to the CI validation strategy, not to
+`claude-base` itself, and out of scope for this mission. Flagged here with
+evidence rather than fixed.
+
 ## Evidence
 
 - `docker inspect claude-base:latest` before rebuild: `Created:
@@ -188,6 +207,12 @@ resulting emulated image ran `claude --version` / `delta --version` cleanly.
   --platform linux/amd64 --load` (genuine QEMU emulation, cross-arch from
   this arm64 host) completed successfully end to end, including the delta
   step, with no `sudo` involved.
+- With both fixes in place, `build-base` passed in live CI (run
+  `31794388225`, 5m33s) - not just reproduced locally. `build-stacks`'
+  pre-existing, unrelated `403 Forbidden` failure confirmed via `git log
+  --follow -p .github/workflows/build-images.yml`: the `push:
+  ${{ github.event_name != 'pull_request' }}` gating on both jobs traces to
+  the same original commit that created the file.
 
 ## Consequences
 
@@ -210,6 +235,8 @@ resulting emulated image ran `claude --version` / `delta --version` cleanly.
 
 - Adding a scheduled CI rebuild (see Decision above).
 - Rebuilding/testing the derived stack images.
+- Fixing `build-stacks`' pre-existing PR-event `403 Forbidden` failure (see
+  above) - a CI validation-strategy redesign, not a `claude-base` fix.
 - Changing the wrapper's subscription-vs-API-key auth preference or its
   automatic `--dangerously-skip-permissions` behavior.
 - Any change to the `vanillacrm`, `jam`, or `captain-ai` repos.
