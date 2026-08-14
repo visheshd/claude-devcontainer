@@ -154,24 +154,39 @@ real QEMU emulation locally (`docker buildx build --platform linux/amd64`
 other direction) - the delta step and the full build both succeeded, and the
 resulting emulated image ran `claude --version` / `delta --version` cleanly.
 
-**`build-stacks` still fails in CI - pre-existing, unrelated, not fixed
-here.** With both bugs above fixed, `build-base` now passes in real CI
-(confirmed: run `31794388225`, 5m33s). The three `build-stacks` matrix jobs
-(`nextjs`, `python-ml`, `rust-tauri`) still fail, but for a third, distinct,
-and older reason that this PR does not touch: both `build-base` and
-`build-stacks` set `push: ${{ github.event_name != 'pull_request' }}`, so on
-a PR event `build-base` never actually pushes `claude-base` to `ghcr.io` -
-and `build-stacks`' `FROM ${BASE_IMAGE}` then fails immediately with `403
+**`build-stacks` was red on every PR - pre-existing, unrelated, now fixed
+with an honest skip.** With both bugs above fixed, `build-base` passes in
+real CI (confirmed: run `31794388225`, 5m33s). The three `build-stacks`
+matrix jobs (`nextjs`, `python-ml`, `rust-tauri`) were still failing, but for
+a third, distinct, and older reason this diff never touched: both
+`build-base` and `build-stacks` set
+`push: ${{ github.event_name != 'pull_request' }}`, so on a PR event
+`build-base` never actually pushes `claude-base` to `ghcr.io` - and
+`build-stacks`' `FROM ${BASE_IMAGE}` then failed immediately with `403
 Forbidden` trying to pull an image that was never published. `git log
 --follow -p` on this workflow file shows both `push:` lines were introduced
 together in the same original commit that created the workflow - this gap
 has existed since day one and would fail identically on any PR touching
-`dockerfiles/**`, with or without this change. Fixing it means redesigning
-how the matrix validates on PR events (e.g. `--load` instead of `--push` for
-PR runs, or passing the base image via the buildx cache instead of a
-registry round-trip) - a change to the CI validation strategy, not to
-`claude-base` itself, and out of scope for this mission. Flagged here with
-evidence rather than fixed.
+`dockerfiles/**`, with or without the rest of this change.
+
+Initially left flagged-but-unfixed as a CI validation-strategy question, out
+of scope for a `claude-base` rebuild. An independent review of this PR
+pushed back: the gap predates this diff, but this diff is what turns it from
+a silent skip (it only skipped before because `build-base` itself failed
+fast) into three loud red X's on every future `dockerfiles/**` PR - worth
+closing rather than leaving as an ADR paragraph, especially with the repo
+now heading into maintenance mode. Fixed by adding
+`if: github.event_name != 'pull_request'` to the `build-stacks` job
+(`.github/workflows/build-images.yml`), matching the skip semantics already
+used for that job's registry-login step and for `security-scan`. Considered
+the alternative - `build-base` using `load: true` on PR events and handing
+the image to `build-stacks` via the `gha` cache instead of a registry
+round-trip - which would give PRs actual multi-stack build coverage instead
+of a skip. Rejected for this change: it needs re-plumbing how the built
+image reaches the matrix jobs (cache key, tag, or artifact handoff) and
+re-verifying all three derived Dockerfiles build against it, which is a CI
+validation-strategy redesign, not a one-line gate fix, and out of scope for
+a `claude-base` rebuild PR - especially given the repo's imminent retirement.
 
 ## Evidence
 
@@ -213,6 +228,11 @@ evidence rather than fixed.
   --follow -p .github/workflows/build-images.yml`: the `push:
   ${{ github.event_name != 'pull_request' }}` gating on both jobs traces to
   the same original commit that created the file.
+- `build-stacks` gate fix: `if: github.event_name != 'pull_request'` mirrors
+  the condition already on that same job's registry-login step
+  (`.github/workflows/build-images.yml`, `Log in to Container Registry`)
+  and on the downstream `security-scan` job - not a new pattern introduced
+  here, just applied one level up to the job itself.
 
 ## Consequences
 
@@ -235,8 +255,9 @@ evidence rather than fixed.
 
 - Adding a scheduled CI rebuild (see Decision above).
 - Rebuilding/testing the derived stack images.
-- Fixing `build-stacks`' pre-existing PR-event `403 Forbidden` failure (see
-  above) - a CI validation-strategy redesign, not a `claude-base` fix.
+- Giving `build-stacks` real PR-time build coverage (the `load: true` +
+  cache-handoff redesign discussed above) - only its honest-skip semantics
+  were restored, not actual per-PR validation of the three derived images.
 - Changing the wrapper's subscription-vs-API-key auth preference or its
   automatic `--dangerously-skip-permissions` behavior.
 - Any change to the `vanillacrm`, `jam`, or `captain-ai` repos.
