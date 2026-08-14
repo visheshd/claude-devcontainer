@@ -133,6 +133,27 @@ three derived-image jobs (`nextjs`, `python-ml`, `rust-tauri`) keep their
 own per-image contexts unchanged - none of their Dockerfiles have any `COPY`
 instructions, so they were never affected by this bug.
 
+**Fixing the context bug uncovered a third, previously-unreachable
+pre-existing bug: `sudo` fails under CI's cross-arch QEMU emulation.**
+`build-images.yml` builds `platforms: linux/amd64,linux/arm64` via buildx on
+a single amd64 GitHub runner, emulating the non-native arch with QEMU. The
+Dockerfile's git-delta install ran as `claude-user` (after the `USER`
+switch) and used `sudo mv` to place the binary in `/usr/local/bin`. Under
+QEMU user-mode emulation this failed: `sudo: effective uid is not 0, is
+/usr/bin/sudo on a file system with the 'nosuid' option set or an NFS file
+system without root privileges?` - a known QEMU/binfmt limitation, not an
+actual permissions problem. This had never been seen before because the
+`build-base` job never got past the `COPY` failure above in months of CI
+runs - fixing that bug was what let the build reach this step for the first
+time. Fixed by moving the delta install to run as root, before the `USER
+claude-user` switch, and dropping `sudo` entirely (root never needs it to
+write to `/usr/local/bin`) - sidesteps the QEMU/sudo interaction rather than
+working around it. Verified directly rather than inferred: rebuilt under
+real QEMU emulation locally (`docker buildx build --platform linux/amd64`
+`--load` on this arm64 host, the same cross-arch situation CI hits from the
+other direction) - the delta step and the full build both succeeded, and the
+resulting emulated image ran `claude --version` / `delta --version` cleanly.
+
 ## Evidence
 
 - `docker inspect claude-base:latest` before rebuild: `Created:
@@ -158,6 +179,15 @@ instructions, so they were never affected by this bug.
   dockerfiles/claude-base/Dockerfile`) and repeating both the version check
   (2.1.232) and the full credential-seeding end-to-end proof above - both
   passed unchanged.
+- `sudo`/QEMU bug: build with the context fix alone still failed in CI at
+  `[linux/arm64 19/22]` on the `sudo mv` step
+  (`https://github.com/visheshd/claude-devcontainer/actions/runs/31792847706`)
+  after progressing 9 steps further than before - confirming the context fix
+  worked and this was a distinct, newly-reached failure. After moving the
+  delta install before the `USER` switch, a local `docker buildx build
+  --platform linux/amd64 --load` (genuine QEMU emulation, cross-arch from
+  this arm64 host) completed successfully end to end, including the delta
+  step, with no `sudo` involved.
 
 ## Consequences
 

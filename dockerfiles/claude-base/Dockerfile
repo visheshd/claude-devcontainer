@@ -88,6 +88,25 @@ RUN echo 'PS1="\u@\h:\w\$ "' > /home/claude-user/.bashrc && \
 RUN GROUP_NAME=$(cat /tmp/group_info | cut -d= -f2) && \
     chown -R claude-user:$GROUP_NAME /app /home/claude-user
 
+# Install git-delta for better git diff experience. Runs as root, before the
+# USER switch below, and uses plain mv (no sudo): under QEMU cross-arch
+# emulation (CI builds linux/amd64,linux/arm64 on an amd64 runner), `sudo`
+# fails with "effective uid is not 0" - a QEMU/binfmt limitation, not a
+# permissions problem. Root never needs sudo to write to /usr/local/bin, so
+# this sidesteps the emulation issue entirely rather than working around it.
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        DELTA_ARCH="x86_64-unknown-linux-gnu"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        DELTA_ARCH="aarch64-unknown-linux-gnu"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    echo "Installing delta for architecture: $DELTA_ARCH" && \
+    curl -fsSL https://github.com/dandavison/delta/releases/download/0.16.5/delta-0.16.5-${DELTA_ARCH}.tar.gz | \
+    tar -xz -C /tmp && \
+    mv /tmp/delta-*/delta /usr/local/bin/
+
 # Switch to non-root user for remaining operations
 USER claude-user
 
@@ -100,20 +119,6 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # Add local bin and scripts to PATH
 ENV PATH="/home/claude-user/.local/bin:${PATH}"
 ENV PYTHONPATH="/home/claude-user/scripts:${PYTHONPATH}"
-
-# Configure git-delta for better git diff experience
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ]; then \
-        DELTA_ARCH="x86_64-unknown-linux-gnu"; \
-    elif [ "$ARCH" = "aarch64" ]; then \
-        DELTA_ARCH="aarch64-unknown-linux-gnu"; \
-    else \
-        echo "Unsupported architecture: $ARCH" && exit 1; \
-    fi && \
-    echo "Installing delta for architecture: $DELTA_ARCH" && \
-    curl -fsSL https://github.com/dandavison/delta/releases/download/0.16.5/delta-0.16.5-${DELTA_ARCH}.tar.gz | \
-    tar -xz -C /tmp && \
-    sudo mv /tmp/delta-*/delta /usr/local/bin/
 
 # Configure git for delta
 RUN git config --global core.pager "delta" && \
