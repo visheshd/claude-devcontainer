@@ -2,7 +2,7 @@
 # Provides the foundational environment for Claude Code with MCP server integration
 # This base image contains the core components shared across all tech stacks
 
-FROM node:20-slim
+FROM node:22-slim
 
 # Install essential system dependencies (optimized)
 RUN apt-get update && apt-get install -y \
@@ -39,8 +39,16 @@ RUN if getent passwd $USER_UID > /dev/null 2>&1; then \
     echo "claude-user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     echo "GROUP_NAME=$GROUP_NAME" > /tmp/group_info
 
-# Install Claude Code globally
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code globally, pinned so bumps are a reviewable diff instead
+# of silent drift. Requires Node >= 22 (claude-code's own engines constraint) -
+# on an older Node, npm silently resolves to the newest version compatible
+# with the running Node instead of erroring, which can land weeks behind
+# "latest" without any warning.
+#
+# To bump: run `npm view @anthropic-ai/claude-code version`, update the ARG
+# below to that value, and rebuild.
+ARG CLAUDE_CODE_VERSION=2.1.232
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
 # Ensure npm global bin is in PATH
 ENV PATH="/usr/local/bin:${PATH}"
@@ -59,6 +67,13 @@ RUN chmod +x /home/claude-user/scripts/git-wrapper.sh /home/claude-user/scripts/
 # Install git wrapper at higher precedence than system git
 RUN ln -sf /home/claude-user/scripts/git-wrapper.sh /usr/local/bin/git
 
+# Preserve npm's own claude symlink (it resolves to whatever binary/entry
+# path the installed claude-code version declares - this has changed between
+# versions, e.g. cli.js -> bin/claude.exe) under a stable name before the
+# wrapper shadows /usr/local/bin/claude, so the wrapper never has to
+# hardcode - and re-break on - an internal package layout.
+RUN mv /usr/local/bin/claude /usr/local/bin/claude-real
+
 # Install Claude wrapper at higher precedence than system claude-code
 RUN ln -sf /home/claude-user/scripts/claude-wrapper.sh /usr/local/bin/claude
 
@@ -73,6 +88,25 @@ RUN echo 'PS1="\u@\h:\w\$ "' > /home/claude-user/.bashrc && \
 RUN GROUP_NAME=$(cat /tmp/group_info | cut -d= -f2) && \
     chown -R claude-user:$GROUP_NAME /app /home/claude-user
 
+# Install git-delta for better git diff experience. Runs as root, before the
+# USER switch below, and uses plain mv (no sudo): under QEMU cross-arch
+# emulation (CI builds linux/amd64,linux/arm64 on an amd64 runner), `sudo`
+# fails with "effective uid is not 0" - a QEMU/binfmt limitation, not a
+# permissions problem. Root never needs sudo to write to /usr/local/bin, so
+# this sidesteps the emulation issue entirely rather than working around it.
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        DELTA_ARCH="x86_64-unknown-linux-gnu"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        DELTA_ARCH="aarch64-unknown-linux-gnu"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    echo "Installing delta for architecture: $DELTA_ARCH" && \
+    curl -fsSL https://github.com/dandavison/delta/releases/download/0.16.5/delta-0.16.5-${DELTA_ARCH}.tar.gz | \
+    tar -xz -C /tmp && \
+    mv /tmp/delta-*/delta /usr/local/bin/
+
 # Switch to non-root user for remaining operations
 USER claude-user
 
@@ -85,20 +119,6 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # Add local bin and scripts to PATH
 ENV PATH="/home/claude-user/.local/bin:${PATH}"
 ENV PYTHONPATH="/home/claude-user/scripts:${PYTHONPATH}"
-
-# Configure git-delta for better git diff experience
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ]; then \
-        DELTA_ARCH="x86_64-unknown-linux-gnu"; \
-    elif [ "$ARCH" = "aarch64" ]; then \
-        DELTA_ARCH="aarch64-unknown-linux-gnu"; \
-    else \
-        echo "Unsupported architecture: $ARCH" && exit 1; \
-    fi && \
-    echo "Installing delta for architecture: $DELTA_ARCH" && \
-    curl -fsSL https://github.com/dandavison/delta/releases/download/0.16.5/delta-0.16.5-${DELTA_ARCH}.tar.gz | \
-    tar -xz -C /tmp && \
-    sudo mv /tmp/delta-*/delta /usr/local/bin/
 
 # Configure git for delta
 RUN git config --global core.pager "delta" && \

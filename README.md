@@ -182,7 +182,7 @@ cdc compose python-ml-services # Python ML + Vector DB + Redis
 
 **Layer 1: Base Image**
 - `claude-base`: Foundation with Claude Code + essential dev tools
-- Components: Node.js 20, Git, SSH, oh-my-zsh, authentication setup
+- Components: Node.js 22, Git, SSH, oh-my-zsh, authentication setup
 
 **Layer 2: Stack Images**  
 - `claude-python-ml`: Python 3.11+, uv, ML libraries, Jupyter, LangChain

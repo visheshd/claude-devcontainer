@@ -2,8 +2,12 @@
 # Claude Code Wrapper Script for Container Environments
 # Uses subscription-first authentication with token fallback
 
-# Path to the real claude binary  
-REAL_CLAUDE="/usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js"
+# Path to the real claude binary. This is npm's own generated entry point,
+# preserved under this name by the Dockerfile before this wrapper is
+# installed at /usr/local/bin/claude - not a hardcoded internal package path,
+# since claude-code's own layout (cli.js vs bin/claude.exe) has changed
+# between versions.
+REAL_CLAUDE="/usr/local/bin/claude-real"
 
 # Function to try subscription authentication first
 try_subscription_auth() {
@@ -77,8 +81,8 @@ authenticate
 # Check if --dangerously-skip-permissions is already in the arguments
 if [[ "$*" == *"--dangerously-skip-permissions"* ]]; then
     # Already has the flag, run normally
-    exec node "$REAL_CLAUDE" "$@"
+    exec "$REAL_CLAUDE" "$@"
 else
     # Add the flag for container safety
-    exec node "$REAL_CLAUDE" --dangerously-skip-permissions "$@"
+    exec "$REAL_CLAUDE" --dangerously-skip-permissions "$@"
 fi
