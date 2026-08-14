@@ -2,7 +2,7 @@
 # Provides the foundational environment for Claude Code with MCP server integration
 # This base image contains the core components shared across all tech stacks
 
-FROM node:20-slim
+FROM node:22-slim
 
 # Install essential system dependencies (optimized)
 RUN apt-get update && apt-get install -y \
@@ -39,8 +39,16 @@ RUN if getent passwd $USER_UID > /dev/null 2>&1; then \
     echo "claude-user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     echo "GROUP_NAME=$GROUP_NAME" > /tmp/group_info
 
-# Install Claude Code globally
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code globally, pinned so bumps are a reviewable diff instead
+# of silent drift. Requires Node >= 22 (claude-code's own engines constraint) -
+# on an older Node, npm silently resolves to the newest version compatible
+# with the running Node instead of erroring, which can land weeks behind
+# "latest" without any warning.
+#
+# To bump: run `npm view @anthropic-ai/claude-code version`, update the ARG
+# below to that value, and rebuild.
+ARG CLAUDE_CODE_VERSION=2.1.232
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
 # Ensure npm global bin is in PATH
 ENV PATH="/usr/local/bin:${PATH}"
@@ -58,6 +66,13 @@ RUN chmod +x /home/claude-user/scripts/git-wrapper.sh /home/claude-user/scripts/
 
 # Install git wrapper at higher precedence than system git
 RUN ln -sf /home/claude-user/scripts/git-wrapper.sh /usr/local/bin/git
+
+# Preserve npm's own claude symlink (it resolves to whatever binary/entry
+# path the installed claude-code version declares - this has changed between
+# versions, e.g. cli.js -> bin/claude.exe) under a stable name before the
+# wrapper shadows /usr/local/bin/claude, so the wrapper never has to
+# hardcode - and re-break on - an internal package layout.
+RUN mv /usr/local/bin/claude /usr/local/bin/claude-real
 
 # Install Claude wrapper at higher precedence than system claude-code
 RUN ln -sf /home/claude-user/scripts/claude-wrapper.sh /usr/local/bin/claude

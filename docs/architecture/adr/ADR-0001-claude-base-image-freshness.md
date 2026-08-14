@@ -1,0 +1,157 @@
+# ADR-0001: pin claude-code, bump to Node 22, fix the wrapper's binary path - keep the auth wrapper
+
+**Status:** Accepted
+**Date:** 2026-08-14
+
+## Context
+
+`claude-base:latest` was built 2025-09-09 and never rebuilt since. It baked
+`@anthropic-ai/claude-code 1.0.109`, eleven months stale, while the host ran
+2.1.232. The version gap meant the old CLI could not parse settings shapes
+written by anything current, surfacing downstream (in the `vanillacrm`
+project, which consumes this image) as:
+
+```
+RangeError: Maximum call stack size exceeded
+TypeError: B.allowedTools is not iterable
+```
+
+`dockerfiles/claude-base/Dockerfile` is the actual build source for the
+`claude-base:latest` tag (wired through `dockerfiles/claude-base/build.sh`
+and `build-all-images.sh`) - not the repo-root `Dockerfile`, which builds an
+unrelated, differently-purposed image. Its `npm install -g
+@anthropic-ai/claude-code` (line 43) was unpinned, floating to "latest" at
+build time.
+
+Investigating why a plain rebuild wouldn't just self-heal surfaced two
+compounding bugs, not one:
+
+1. **The base image can no longer resolve true latest.** The Dockerfile
+   used `FROM node:20-slim`. claude-code 2.1.223+ declares `engines: {node:
+   ">=22.0.0"}`. Against Node 20, `npm install -g @anthropic-ai/claude-code`
+   does not error - it silently resolves the newest version still
+   compatible with the *running* Node (2.1.197, engines `>=18.0.0`,
+   published 2026-06-30) instead of the registry's actual `latest` dist-tag
+   (2.1.232, published 2026-08-13). Verified by installing on both
+   `node:20-slim` and `node:22-slim` with an identical unpinned command;
+   only the Node 22 base landed on 2.1.232. An unpinned install is not a
+   guarantee of freshness if the base image's engine constraint has fallen
+   behind the package's own requirement - it fails silently, six weeks
+   behind, with no warning in the build log.
+
+2. **`scripts/claude-wrapper.sh` hardcoded a package-internal path that no
+   longer exists.** `/usr/local/bin/claude` is symlinked to this wrapper
+   (installed at higher PATH precedence than npm's own bin, so `CMD
+   ["claude"]` always runs it first). The wrapper hardcoded `REAL_CLAUDE
+   ="/usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js"` and
+   executed it via `node`. Current claude-code no longer ships a `cli.js`
+   entry point - `npm install` now creates `bin/claude.exe`, a standalone
+   ELF executable (confirmed via `file`/hex-dump: `7f 45 4c 46`), and the
+   package's own `package.json` `bin` field points there. Every invocation
+   of `claude` inside the container - regardless of the crash this mission
+   was chasing - was crashing with `MODULE_NOT_FOUND` on the missing
+   `cli.js`, reproduced directly:
+
+   ```
+   Error: Cannot find module '/usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js'
+   ```
+
+## Decision
+
+**Pin the claude-code version**, via `ARG CLAUDE_CODE_VERSION=2.1.232` in
+`dockerfiles/claude-base/Dockerfile`, bumped in a documented one-line
+process (`npm view @anthropic-ai/claude-code version`, update the ARG,
+rebuild). Rejected floating-and-rebuild-on-a-schedule: this repo has no
+scheduled CI (`.github/workflows/build-images.yml` triggers only on
+`dockerfiles/**` pushes, no `schedule:` trigger), so adding one is new
+infrastructure beyond this mission's scope; and finding #1 above shows
+floating doesn't even reliably mean "latest" - it silently degrades to
+whatever the base image's Node version still permits. A pin makes version
+bumps an explicit, reviewable diff instead of invisible entropy, which is
+the exact failure mode that caused the eleven-month staleness this mission
+exists to fix.
+
+**Bump `FROM node:20-slim` to `FROM node:22-slim`.** Required regardless of
+the pinning decision above - without it, even a version-pinned install of a
+claude-code release requiring Node 22 would fail to install the pinned
+version cleanly (npm would refuse or silently substitute).
+
+**Fix, don't remove, the auth wrapper (`scripts/claude-wrapper.sh`).**
+Reassessed against `docs/SECURITY.md`'s documented auth model for this
+image (runtime volume mount of a writable `~/.claude` for subscription
+auth, `.credentials.json` never baked into the image) and against the
+captain's own credential-seeding flow (`ADR-0004` in `captain-ai`, container
+-local `CLAUDE_CONFIG_DIR=/captain/claude-cap` seeded over `docker exec -i`
+stdin). Findings:
+
+- The wrapper never writes settings/config files and never touches
+  `allowedTools` - it only sets auth-related env vars and execs the real
+  binary. It is not the source of the legacy-settings-shape crash; the
+  stale claude-code binary was.
+- It reads credentials only from `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json`
+  in its (currently unused, fallback-only) token path - so it is
+  compatible with the captain's `CLAUDE_CONFIG_DIR` redirection by
+  construction, not by luck.
+- It provides real value this image's own documented model depends on:
+  automatic subscription-auth env setup and an automatic
+  `--dangerously-skip-permissions` for container use, for the non-captain,
+  standalone use case `docs/SECURITY.md` describes (a user mounting their
+  own live `~/.claude`).
+- It *was*, however, actively broken by the `cli.js` path assumption
+  (finding #2) - every `claude` invocation crashed before reaching any
+  auth or settings logic at all. This needed a fix regardless of the
+  keep/remove question.
+
+The fix: the Dockerfile now preserves npm's own generated `/usr/local/bin/claude`
+symlink under `/usr/local/bin/claude-real` *before* installing the wrapper
+over `/usr/local/bin/claude`. The wrapper execs `/usr/local/bin/claude-real`
+directly (no `node` prefix - the target is a native executable, not a JS
+file). npm's symlink is authoritative and adapts automatically to whatever
+entry point the installed version declares, so this fix does not reintroduce
+a hardcoded internal path that can break again on the next claude-code
+packaging change.
+
+## Evidence
+
+- `docker inspect claude-base:latest` before rebuild: `Created:
+  2025-09-09T02:45:25Z`, baked version 1.0.109 (`package.json` inside the
+  image).
+- Unpinned install on `node:20-slim` (fresh, `--no-cache`) landed 2.1.197
+  (published 2026-06-30); the same command on `node:22-slim` landed 2.1.232
+  (published 2026-08-13, actual `latest` dist-tag at build time).
+- Pre-fix wrapper crash, reproduced directly in the rebuilt (node:22, still
+  broken-wrapper) image:
+  `docker run --rm --entrypoint sh claude-base:latest -c 'claude --version'`
+  → `Error: Cannot find module '.../cli.js'`.
+- Post-fix, full end-to-end proof mimicking the captain's real flow: started
+  a container, created `/captain/claude-cap` as `claude-user`, streamed a
+  real OAuth credential blob over `docker exec -i ... claude-user` stdin
+  into `.credentials.json` (chmod 600), then ran a live prompt with
+  `CLAUDE_CONFIG_DIR=/captain/claude-cap`:
+  `echo "reply with exactly: OK" | claude -p --output-format text` → `OK`,
+  exit 0, no `allowedTools` error, no stack overflow.
+
+## Consequences
+
+- `claude-base:latest` now ships claude-code 2.1.232 on Node 22, matching
+  the host.
+- Future version bumps are a one-line `ARG` change instead of invisible
+  drift - but this now requires a human/PR to remember to bump it. No
+  automation enforces freshness; if that becomes a recurring problem, a
+  scheduled rebuild workflow is the natural next step (out of scope here).
+- Derived images (`dockerfiles/{nextjs,python-ml,rust-tauri}`) build `FROM
+  claude-base:latest` and inherit the Node 22 bump. Not rebuilt or tested
+  as part of this change (out of scope) - verify them before relying on
+  this base image update in a derived-image build.
+- The wrapper's `CLAUDE_USE_SUBSCRIPTION` / `CLAUDE_BYPASS_BALANCE_CHECK`
+  env vars and its always-on `--dangerously-skip-permissions` injection
+  were left as-is - out of scope for this mission, and not implicated in
+  the crash this mission was chasing.
+
+## Out of scope
+
+- Adding a scheduled CI rebuild (see Decision above).
+- Rebuilding/testing the derived stack images.
+- Changing the wrapper's subscription-vs-API-key auth preference or its
+  automatic `--dangerously-skip-permissions` behavior.
+- Any change to the `vanillacrm`, `jam`, or `captain-ai` repos.
